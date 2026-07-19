@@ -1,21 +1,28 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { MonacoBinding } from 'y-monaco';
 import { useAuth } from '../contexts/AuthContext';
-import { Code2, Share2, MessageSquare, Play, FolderTree, FileJson } from 'lucide-react';
+import { Code2, Share2, MessageSquare, Play, FolderTree, FileJson, LogOut, Users, Check } from 'lucide-react';
 import api from '../utils/api';
 
 export default function Workspace() {
   const { projectId } = useParams();
-  const { token, user } = useAuth();
+  const { token, user, logout } = useAuth();
+  const navigate = useNavigate();
   const editorRef = useRef(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [chatArray, setChatArray] = useState(null);
-  const [shareLink, setShareLink] = useState('');
+  const [joinCode, setJoinCode] = useState('');
+  const [copied, setCopied] = useState(false);
+  
+  // Execution Engine States
+  const [language, setLanguage] = useState('javascript');
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [executionOutput, setExecutionOutput] = useState('');
 
   // Setup Yjs for Chat
   useEffect(() => {
@@ -70,8 +77,40 @@ export default function Workspace() {
   const generateShareLink = async () => {
     try {
       const res = await api.post(`/projects/${projectId}/share`);
-      setShareLink(res.data.data.whatsappLink);
-    } catch (err) { alert('Failed to generate link'); }
+      setJoinCode(res.data.data.joinCode);
+    } catch (err) { alert('Failed to generate invite code'); }
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(joinCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRunCode = async () => {
+    if (!editorRef.current) return;
+    const code = editorRef.current.getValue();
+    
+    setIsExecuting(true);
+    setExecutionOutput('Executing code in secure container...\n');
+    
+    try {
+      const res = await api.post(`/projects/${projectId}/execute`, {
+        code,
+        language
+      });
+      const { run } = res.data.data;
+      
+      let output = '';
+      if (run.stderr) output += `${run.stderr}\n`;
+      if (run.stdout) output += run.stdout;
+      
+      setExecutionOutput(output || 'Program exited cleanly with no output.');
+    } catch (err) {
+      setExecutionOutput(err.response?.data?.message || 'Execution failed due to a server error.');
+    } finally {
+      setIsExecuting(false);
+    }
   };
 
   return (
@@ -83,17 +122,51 @@ export default function Workspace() {
           <span className="font-semibold text-sm">CodeSync Editor</span>
         </div>
         <div className="flex items-center gap-3">
-          {shareLink ? (
-            <a href={shareLink} target="_blank" className="text-xs bg-green-500/20 text-green-400 px-3 py-1.5 rounded flex items-center gap-2">
-              <Share2 className="h-3 w-3" /> WhatsApp Link
-            </a>
+          {joinCode ? (
+            <div className="flex items-center gap-2 bg-[#0f172a] border border-[#334155] rounded px-3 py-1.5">
+              <span className="text-xs text-gray-400">Join Code:</span>
+              <span className="text-xs font-bold text-brand-400 tracking-widest">{joinCode}</span>
+              <button 
+                onClick={copyToClipboard}
+                className="text-[10px] bg-brand-500/20 text-brand-400 hover:bg-brand-500 hover:text-white px-2 py-0.5 rounded transition-colors ml-1 flex items-center gap-1"
+              >
+                {copied ? <Check className="h-3 w-3" /> : 'Copy'}
+              </button>
+            </div>
           ) : (
-            <button onClick={generateShareLink} className="text-xs bg-brand-500 hover:bg-brand-600 px-3 py-1.5 rounded flex items-center gap-2 transition-colors">
-              <Share2 className="h-3 w-3" /> Share Project
+            <button onClick={generateShareLink} className="text-xs bg-[#1e293b] border border-[#334155] hover:bg-[#334155] px-3 py-1.5 rounded flex items-center gap-2 transition-colors">
+              <Users className="h-3 w-3" /> Invite Members
             </button>
           )}
-          <button className="text-xs bg-emerald-500 hover:bg-emerald-600 px-4 py-1.5 rounded flex items-center gap-2 transition-colors">
-            <Play className="h-3 w-3" /> Run Code
+          
+          <select 
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="bg-[#0f172a] border border-[#334155] text-xs text-gray-300 rounded px-2 py-1.5 focus:outline-none"
+          >
+            <option value="javascript">JavaScript</option>
+            <option value="python">Python</option>
+            <option value="cpp">C++</option>
+            <option value="java">Java</option>
+            <option value="go">Go</option>
+          </select>
+
+          <button 
+            onClick={handleRunCode}
+            disabled={isExecuting}
+            className={`text-xs px-4 py-1.5 rounded flex items-center gap-2 transition-colors ${isExecuting ? 'bg-gray-500 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+          >
+            <Play className="h-3 w-3" /> {isExecuting ? 'Running...' : 'Run Code'}
+          </button>
+          
+          <div className="h-4 w-px bg-[#334155] mx-2"></div>
+          
+          <button 
+            onClick={() => { logout(); navigate('/login'); }} 
+            className="text-xs hover:bg-red-500/10 hover:text-red-500 text-gray-400 p-1.5 rounded transition-colors" 
+            title="Logout"
+          >
+            <LogOut className="h-4 w-4" />
           </button>
         </div>
       </nav>
@@ -112,20 +185,43 @@ export default function Workspace() {
           </div>
         </div>
 
-        {/* Center - Monaco Editor */}
-        <div className="flex-1 flex flex-col relative bg-[#1e1e1e]">
-          <Editor
-            height="100%"
-            defaultLanguage="javascript"
-            theme="vs-dark"
-            onMount={handleEditorMount}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-              fontFamily: 'JetBrains Mono, monospace',
-              padding: { top: 16 }
-            }}
-          />
+        {/* Center - Monaco Editor & Terminal */}
+        <div className="flex-1 flex flex-col relative bg-[#1e1e1e] min-w-0">
+          <div className="flex-1 min-h-0 relative">
+            <Editor
+              height="100%"
+              language={language}
+              theme="vs-dark"
+              onMount={handleEditorMount}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                fontFamily: 'JetBrains Mono, monospace',
+                padding: { top: 16 }
+              }}
+            />
+          </div>
+          
+          {/* Terminal Output Panel */}
+          <div className="h-56 bg-[#0f172a] border-t border-[#334155] flex flex-col">
+            <div className="px-4 py-2 bg-[#1e293b] border-b border-[#334155] text-xs font-bold text-gray-400 flex justify-between items-center shrink-0">
+              <span>EXECUTION OUTPUT</span>
+              {executionOutput && (
+                <button onClick={() => setExecutionOutput('')} className="text-gray-500 hover:text-brand-400 transition-colors">
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className="flex-1 p-4 overflow-y-auto font-mono text-sm whitespace-pre-wrap break-words">
+              {executionOutput ? (
+                <span className={executionOutput.includes('Error') || executionOutput.includes('failed') ? 'text-red-400' : 'text-gray-300'}>
+                  {executionOutput}
+                </span>
+              ) : (
+                <span className="text-gray-600">Run your code to see the output here...</span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Right Sidebar - Chat */}

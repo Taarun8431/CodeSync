@@ -22,10 +22,8 @@ export default function Dashboard() {
       const wsList = wsRes.data.data.workspaces || [];
       setWorkspaces(wsList);
       
-      if (wsList.length > 0) {
-        const projRes = await api.get(`/projects?workspaceId=${wsList[0].id}`);
-        setProjects(projRes.data.data.projects || []);
-      }
+      const projRes = await api.get(`/projects`);
+      setProjects(projRes.data.data.projects || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -56,7 +54,7 @@ export default function Dashboard() {
     e.preventDefault();
     if (!joinCode) return;
     try {
-      await api.post('/projects/join', { joinCode });
+      await api.post('/projects/join', { code: joinCode });
       setJoinCode('');
       fetchData();
       alert('Successfully joined!');

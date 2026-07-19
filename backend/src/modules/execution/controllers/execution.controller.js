@@ -4,6 +4,13 @@ const asyncHandler = require('../../../utils/asyncHandler');
 const { sendSuccess } = require('../../../utils/apiResponse');
 const AppError = require('../../../utils/AppError');
 const prisma = require('../../../lib/prisma');
+const { exec } = require('child_process');
+const fs = require('fs/promises');
+const path = require('path');
+const crypto = require('crypto');
+const util = require('util');
+
+const execPromise = util.promisify(exec);
 
 // Helper to check user has at least viewer access to the project
 const verifyProjectAccess = async (userId, projectId) => {
@@ -44,47 +51,57 @@ const executeCode = asyncHandler(async (req, res) => {
     throw new AppError('No code provided to execute', 400);
   }
 
-  // 3. Map common editor language identifiers to Piston API identifiers
+  // 3. Local execution configurations
   const langMap = {
-    javascript: 'javascript',
-    typescript: 'typescript',
-    python: 'python',
-    java: 'java',
-    cpp: 'c++',
-    c: 'c',
-    rust: 'rust',
-    go: 'go',
-    php: 'php'
+    javascript: { ext: 'js', cmd: 'node' },
+    python: { ext: 'py', cmd: 'python' }
+    // Other languages require compilation steps (gcc, javac) which can be added later
   };
 
-  const pistonLang = langMap[language.toLowerCase()] || language;
-
-  // 4. Make request to public Piston API
-  const response = await fetch('https://emkc.org/api/v2/piston/execute', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      language: pistonLang,
-      version: '*', // Ask Piston for latest available version
-      files: [{ content: contentToRun }]
-    })
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new AppError(data.message || 'Failed to execute code on remote engine', 500);
+  const langConfig = langMap[language.toLowerCase()];
+  if (!langConfig) {
+    throw new AppError(`Language '${language}' is not currently supported on the local engine. Try Javascript or Python.`, 400);
   }
 
-  // 5. Return execution results
-  sendSuccess(res, {
-    message: 'Code executed successfully',
-    data: {
-      language: data.language,
-      version: data.version,
-      run: data.run // contains stdout, stderr, code, signal
-    }
-  });
+  // 4. Create temporary execution environment
+  const tempDir = path.join(__dirname, '../../../../temp_executions');
+  await fs.mkdir(tempDir, { recursive: true }).catch(() => {});
+  
+  const fileName = crypto.randomBytes(16).toString('hex') + '.' + langConfig.ext;
+  const filePath = path.join(tempDir, fileName);
+  
+  await fs.writeFile(filePath, contentToRun);
+  
+  // 5. Execute Code using Node child_process
+  try {
+    const { stdout, stderr } = await execPromise(`${langConfig.cmd} ${filePath}`, { timeout: 5000 });
+    
+    await fs.unlink(filePath).catch(() => {}); // Cleanup
+    
+    sendSuccess(res, {
+      message: 'Code executed successfully locally',
+      data: {
+        language,
+        version: 'local-engine v1.0',
+        run: { stdout, stderr, code: 0 }
+      }
+    });
+  } catch (err) {
+    await fs.unlink(filePath).catch(() => {}); // Cleanup
+    
+    sendSuccess(res, {
+      message: 'Code executed with errors',
+      data: {
+        language,
+        version: 'local-engine v1.0',
+        run: { 
+          stdout: err.stdout || '', 
+          stderr: err.stderr || err.message, 
+          code: err.code || 1 
+        }
+      }
+    });
+  }
 });
 
 module.exports = {

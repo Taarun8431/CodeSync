@@ -28,7 +28,23 @@ const createProject = async (userId, data) => {
   });
 };
 
+const getAllUserProjects = async (userId) => {
+  return prisma.project.findMany({
+    where: {
+      OR: [
+        { workspace: { ownerId: userId } },
+        { members: { some: { userId } } }
+      ]
+    },
+    orderBy: { createdAt: 'desc' }
+  });
+};
+
 const getProjectsByWorkspace = async (userId, workspaceId) => {
+  if (!workspaceId) {
+    return getAllUserProjects(userId);
+  }
+
   const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
   if (!workspace) throw new AppError('Workspace not found', 404);
   
