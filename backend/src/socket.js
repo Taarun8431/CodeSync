@@ -1,7 +1,7 @@
 'use strict';
 
 const { WebSocketServer } = require('ws');
-const { setupWSConnection, setPersistence } = require('y-websocket/bin/utils');
+const { setupWSConnection, setPersistence, docs } = require('y-websocket/bin/utils');
 const { verifyAccessToken } = require('./utils/jwt');
 const prisma = require('./lib/prisma');
 
@@ -12,6 +12,33 @@ const wsConnectionCounts = new Map();
 setInterval(() => {
   wsConnectionCounts.clear();
 }, 60000);
+
+// ─── Auto-Save Loop (Every 2 Minutes) ────────────────────────────────────────
+setInterval(() => {
+  docs.forEach(async (ydoc, docName) => {
+    try {
+      if (docName.startsWith('project-')) {
+        const chatArray = ydoc.getArray('chat').toArray();
+        await prisma.project.update({
+          where: { id: docName.replace('project-', '') },
+          data: { chatHistory: chatArray }
+        });
+      } else {
+        const content = ydoc.getText('monaco').toString();
+        await prisma.file.update({
+          where: { id: docName },
+          data: { content }
+        });
+        
+        // Broadcast notification to all connected clients editing this file
+        const notifMap = ydoc.getMap('notifications');
+        notifMap.set('lastSaved', Date.now());
+      }
+    } catch (err) {
+      console.error(`[AutoSave] Failed to save ${docName}:`, err.message);
+    }
+  });
+}, 120000);
 
 // ─── Database Persistence (Debounced Saves) ──────────────────────────────────
 // This binds the Yjs in-memory document to our Postgres Database

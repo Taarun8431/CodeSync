@@ -18,6 +18,7 @@ export default function Workspace() {
   // Layout states
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
+  const [saveNotification, setSaveNotification] = useState(false);
   const [bottomPanelOpen, setBottomPanelOpen] = useState(true);
 
   // Chat States
@@ -151,6 +152,14 @@ export default function Workspace() {
     
     const type = doc.getText('monaco');
     bindingRef.current = new MonacoBinding(type, editorRef.current.getModel(), new Set([editorRef.current]), providerRef.current.awareness);
+
+    const yNotif = doc.getMap('notifications');
+    yNotif.observe((event) => {
+      if (event.keysChanged.has('lastSaved')) {
+        setSaveNotification(true);
+        setTimeout(() => setSaveNotification(false), 3000);
+      }
+    });
   };
 
   // Re-bind and swap model when active file changes
@@ -564,6 +573,22 @@ export default function Workspace() {
               </div>
             )}
           </div>
+
+        {/* Save Notification Toast */}
+        <AnimatePresence>
+          {saveNotification && (
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-4 py-2 rounded-full flex items-center gap-2 backdrop-blur-md shadow-lg z-50"
+            >
+              <Check className="w-4 h-4" />
+              <span className="text-sm font-medium">Code automatically saved to DB</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
           
           {/* Bottom Terminal Panel */}
           <AnimatePresence initial={false}>
