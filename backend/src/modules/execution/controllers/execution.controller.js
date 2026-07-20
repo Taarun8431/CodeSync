@@ -64,7 +64,8 @@ const executeCode = asyncHandler(async (req, res) => {
   }
 
   // 4. Create temporary execution environment
-  const tempDir = path.join(__dirname, '../../../../temp_executions');
+  const os = require('os');
+  const tempDir = path.join(os.tmpdir(), 'codesync_executions');
   await fs.mkdir(tempDir, { recursive: true }).catch(() => {});
   
   const fileName = crypto.randomBytes(16).toString('hex') + '.' + langConfig.ext;
