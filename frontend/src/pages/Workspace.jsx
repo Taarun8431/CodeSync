@@ -114,18 +114,21 @@ export default function Workspace() {
   const modelsRef = useRef({}); // Store monaco models by fileId
 
   // Handle Editor Mount & Yjs Binding
-  const handleEditorMount = (editor, monaco) => {
+  const handleEditorMount = async (editor, monaco) => {
     editorRef.current = editor;
     setMonacoInstance(monaco);
-    
-    // Create models for initial files
-    files.forEach(f => {
-      if (f.type === 'file' && !modelsRef.current[f.id]) {
-        modelsRef.current[f.id] = monaco.editor.createModel(f.content, f.language || 'plaintext', monaco.Uri.file(`${f.id}-${f.name}`));
-      }
-    });
 
-    if (activeFileId && modelsRef.current[activeFileId]) {
+    if (activeFileId && !modelsRef.current[activeFileId]) {
+      try {
+        const res = await api.get(`/projects/${projectId}/vfs/files/${activeFileId}`);
+        const f = res.data.data.file;
+        modelsRef.current[activeFileId] = monaco.editor.createModel(f.content || '', f.language || 'plaintext', monaco.Uri.file(`${f.id}-${f.name}`));
+        editor.setModel(modelsRef.current[activeFileId]);
+        bindEditor(activeFileId);
+      } catch (err) {
+        console.error('Failed to fetch initial file content', err);
+      }
+    } else if (activeFileId && modelsRef.current[activeFileId]) {
       editor.setModel(modelsRef.current[activeFileId]);
       bindEditor(activeFileId);
     }
@@ -152,16 +155,25 @@ export default function Workspace() {
 
   // Re-bind and swap model when active file changes
   useEffect(() => {
-    if (editorRef.current && monacoInstance && activeFileId) {
-      if (!modelsRef.current[activeFileId]) {
-        const f = files.find(x => x.id === activeFileId);
-        modelsRef.current[activeFileId] = monacoInstance.editor.createModel(f?.content || '', f?.language || 'plaintext', monacoInstance.Uri.file(`${f?.id}-${f?.name}`));
+    const loadModelAndBind = async () => {
+      if (editorRef.current && monacoInstance && activeFileId) {
+        if (!modelsRef.current[activeFileId]) {
+          try {
+            const res = await api.get(`/projects/${projectId}/vfs/files/${activeFileId}`);
+            const f = res.data.data.file;
+            modelsRef.current[activeFileId] = monacoInstance.editor.createModel(f.content || '', f.language || 'plaintext', monacoInstance.Uri.file(`${f.id}-${f.name}`));
+          } catch (err) {
+            console.error('Failed to load file content', err);
+            return;
+          }
+        }
+        // Swap the editor to the new model (preserves cursor, undo history, and text)
+        editorRef.current.setModel(modelsRef.current[activeFileId]);
+        bindEditor(activeFileId);
       }
-      // Swap the editor to the new model (preserves cursor, undo history, and text)
-      editorRef.current.setModel(modelsRef.current[activeFileId]);
-      bindEditor(activeFileId);
-    }
-  }, [activeFileId, monacoInstance]);
+    };
+    loadModelAndBind();
+  }, [activeFileId, monacoInstance, projectId]);
 
   const handleCreateFile = () => {
     setNewItemType('file');

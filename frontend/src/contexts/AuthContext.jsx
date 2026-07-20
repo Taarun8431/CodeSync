@@ -19,7 +19,8 @@ export function AuthProvider({ children }) {
           setUser(res.data.data.user);
         })
         .catch(() => {
-          logout();
+          // Instead of immediate logout, the interceptor will try to refresh.
+          // If refresh fails, it dispatches auth:logout
         })
         .finally(() => {
           setLoading(false);
@@ -28,6 +29,24 @@ export function AuthProvider({ children }) {
       setLoading(false);
     }
   }, [token]);
+
+  useEffect(() => {
+    const handleAuthRefresh = (e) => {
+      setToken(e.detail);
+    };
+
+    const handleAuthLogout = () => {
+      logout();
+    };
+
+    window.addEventListener('auth:refresh', handleAuthRefresh);
+    window.addEventListener('auth:logout', handleAuthLogout);
+
+    return () => {
+      window.removeEventListener('auth:refresh', handleAuthRefresh);
+      window.removeEventListener('auth:logout', handleAuthLogout);
+    };
+  }, []);
 
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
