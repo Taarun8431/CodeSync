@@ -6,7 +6,9 @@ const AppError = require('../utils/AppError');
 const errorHandler = (err, req, res, _next) => {
   // Operational errors: our own AppError instances
   if (err instanceof AppError) {
-    return sendError(res, { statusCode: err.statusCode, message: err.message });
+    // If there are validation errors attached, use the first one's message instead of the generic "Validation failed."
+    const message = err.errors && err.errors.length > 0 ? err.errors[0].message : err.message;
+    return sendError(res, { statusCode: err.statusCode, message, errors: err.errors });
   }
 
   // Prisma unique constraint violation
