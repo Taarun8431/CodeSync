@@ -38,6 +38,37 @@ CodeSync follows a scalable client-server architecture:
 - The **WebSocket Server** runs concurrently, intercepting upgrade requests to authenticate users, and maintaining Yjs document synchronizations for real-time code editing and chat.
 - The **PostgreSQL Database** stores all persistence data. The WebSocket layer actively debounces and saves code changes to the database to ensure no data is lost when all clients disconnect.
 
+```mermaid
+graph TD
+    subgraph Client ["Client (React / Vite)"]
+        UI["Workspace UI"]
+        Editor["Monaco Editor"]
+        Collab["Yjs Client"]
+    end
+
+    subgraph Server ["Server (Node.js)"]
+        API["Express REST API"]
+        WS["WebSocket Server (Yjs)"]
+    end
+
+    subgraph Data ["Database"]
+        DB[("PostgreSQL")]
+    end
+
+    subgraph External ["External Services"]
+        Piston["Piston Execution Engine"]
+    end
+
+    UI -- "HTTP (VFS, Auth)" --> API
+    Editor <== "Sync" ==> Collab
+    Collab <== "WebSockets" ==> WS
+    
+    API -- "Prisma" --> DB
+    WS -- "Debounced Save" --> DB
+    
+    API -- "Run Code" --> Piston
+```
+
 ## 🛠 Prerequisites
 
 Before you begin, ensure you have the following installed:
