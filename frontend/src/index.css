@@ -1,37 +1,285 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --bg-main: #f8fafc;
-    --bg-card: #ffffff;
-    --text-main: #0f172a;
-    --text-muted: #64748b;
-    --border-color: #e2e8f0;
-  }
+/* ============================================
+   CODESYNC DESIGN SYSTEM
+   ============================================ */
 
-  .dark {
-    --bg-main: #0f172a;
-    --bg-card: #1e293b;
-    --text-main: #f8fafc;
-    --text-muted: #94a3b8;
-    --border-color: #334155;
-  }
+:root {
+  /* Background Layers */
+  --bg-primary:   #070b14;
+  --bg-surface:   #0c1220;
+  --bg-elevated:  #111827;
+  --bg-card:      #141e30;
+  --bg-hover:     rgba(255,255,255,0.03);
 
-  body {
-    @apply bg-[var(--bg-main)] text-[var(--text-main)] transition-colors duration-300 ease-in-out font-sans;
-  }
+  /* Accent Colors */
+  --accent-blue:       #3b82f6;
+  --accent-blue-dark:  #2563eb;
+  --accent-blue-light: #60a5fa;
+  --accent-purple:     #8b5cf6;
+  --accent-green:      #22c55e;
+  --accent-red:        #ef4444;
+  --accent-yellow:     #f59e0b;
+  --accent-cyan:       #06b6d4;
+
+  /* Text Colors */
+  --text-primary:   #f0f4ff;
+  --text-secondary: #8892b0;
+  --text-muted:     #4a5568;
+  --text-disabled:  #2d3748;
+
+  /* Border Colors */
+  --border-subtle:  rgba(255,255,255,0.05);
+  --border-default: rgba(255,255,255,0.08);
+  --border-strong:  rgba(255,255,255,0.15);
+  --border-accent:  rgba(59,130,246,0.4);
+
+  /* Shadows / Glows */
+  --glow-blue:   0 0 30px rgba(59,130,246,0.25);
+  --glow-purple: 0 0 30px rgba(139,92,246,0.25);
+  --glow-green:  0 0 20px rgba(34,197,94,0.2);
+
+  /* Radius */
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  14px;
+  --radius-xl:  20px;
+  --radius-2xl: 28px;
+
+  /* Transitions */
+  --transition-fast:   150ms cubic-bezier(0.4,0,0.2,1);
+  --transition-normal: 250ms cubic-bezier(0.4,0,0.2,1);
+  --transition-slow:   400ms cubic-bezier(0.4,0,0.2,1);
+
+  /* Font stacks */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
 }
 
-@layer components {
-  .btn-primary {
-    @apply bg-brand-500 hover:bg-brand-600 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-lg shadow-brand-500/30;
-  }
-  .btn-secondary {
-    @apply bg-transparent border border-[var(--border-color)] hover:bg-slate-500/10 text-[var(--text-main)] font-medium py-2 px-4 rounded-lg transition-all duration-200;
-  }
-  .glass-card {
-    @apply bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-sm backdrop-blur-md;
-  }
+/* ============================================
+   GLOBAL RESET & BASE STYLES
+   ============================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
+
+::selection {
+  background: rgba(59,130,246,0.35);
+  color: #fff;
+}
+
+/* ============================================
+   CUSTOM SCROLLBAR
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139,92,246,0.3);
+  border-radius: 99px;
+  transition: background var(--transition-fast);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139,92,246,0.55);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.font-mono { font-family: var(--font-mono); }
+
+/* Glass effect */
+.glass {
+  background: rgba(11,18,38,0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+}
+
+.glass-light {
+  background: rgba(20,30,48,0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-default);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gradient-text-green {
+  background: linear-gradient(135deg, var(--accent-green), var(--accent-cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Glow button effect */
+.btn-glow {
+  box-shadow: 0 0 20px rgba(59,130,246,0.3);
+  transition: box-shadow var(--transition-normal);
+}
+
+.btn-glow:hover {
+  box-shadow: 0 0 35px rgba(59,130,246,0.5);
+}
+
+/* Grid background pattern */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Radial gradient overlay helper */
+.radial-fade-t {
+  mask-image: radial-gradient(ellipse 80% 50% at 50% 0%, black 60%, transparent 100%);
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-12px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 15px rgba(59,130,246,0.3); }
+  50%       { box-shadow: 0 0 35px rgba(59,130,246,0.6); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes scanline {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+.animate-float        { animation: float 6s ease-in-out infinite; }
+.animate-pulse-glow   { animation: pulse-glow 2s ease-in-out infinite; }
+.animate-blink        { animation: blink 1s step-end infinite; }
+.animate-gradient-shift {
+  background-size: 200% 200%;
+  animation: gradientShift 4s ease infinite;
+}
+
+/* Shimmer loading skeleton */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 25%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Cursor blink for terminal */
+.cursor-blink::after {
+  content: '▌';
+  animation: blink 1s step-end infinite;
+  color: var(--accent-blue);
+}
+
+/* ============================================
+   FORM ELEMENTS RESET
+   ============================================ */
+
+input, textarea, select, button {
+  font-family: inherit;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0px 1000px var(--bg-elevated) inset;
+  transition: background-color 5000s ease-in-out 0s;
+  caret-color: var(--accent-blue);
+}
+
+/* ============================================
+   MONACO EDITOR OVERRIDES
+   ============================================ */
+
+.monaco-editor .margin {
+  background: var(--bg-surface) !important;
+}
+
+.monaco-editor,
+.monaco-editor-background,
+.monaco-editor .inputarea.ime-input {
+  background: var(--bg-primary) !important;
+}
+
+/* ============================================
+   CODE SYNTAX COLOR HELPERS
+   ============================================ */
+
+.token-keyword  { color: #c792ea; }
+.token-string   { color: #c3e88d; }
+.token-number   { color: #f78c6c; }
+.token-function { color: #82aaff; }
+.token-comment  { color: #546e7a; font-style: italic; }
+.token-operator { color: #89ddff; }

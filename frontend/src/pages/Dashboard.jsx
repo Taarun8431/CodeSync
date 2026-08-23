@@ -2,82 +2,178 @@ import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../utils/api';
-import { Folder, Plus, LogOut, Code2, Users, Loader2, Activity, ChevronRight, X, ChevronLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Folder, FolderOpen, Plus, LogOut, Code2, Users, Activity,
+  ChevronRight, X, Search, Clock, Globe, Lock, Hash,
+  LayoutDashboard, Settings, Bell, Zap, GitBranch
+} from 'lucide-react';
+import { PageSpinner } from '../components/ui/Spinner';
+import Modal from '../components/ui/Modal';
+import Button from '../components/ui/Button';
+import Input from '../components/ui/Input';
+import Badge from '../components/ui/Badge';
 
-const fadeInUp = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4 }
+/* ─── Language color map ─── */
+const langColors = {
+  javascript: '#f59e0b',
+  typescript: '#3b82f6',
+  python:     '#22c55e',
+  java:       '#ef4444',
+  cpp:        '#8b5cf6',
+  go:         '#06b6d4',
+  rust:       '#f97316',
 };
 
-const staggerContainer = {
-  animate: {
-    transition: {
-      staggerChildren: 0.1
-    }
-  }
-};
+/* ─── Random lang for demo (since no lang in project data) ─── */
+const langs = Object.keys(langColors);
+function projectColor(name = '') {
+  const idx = Math.abs(name.charCodeAt(0) + (name.charCodeAt(1) || 0)) % langs.length;
+  return langColors[langs[idx]];
+}
 
-// Simple Modal Component
-const Modal = ({ isOpen, onClose, title, children }) => (
-  <AnimatePresence>
-    {isOpen && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="absolute inset-0 bg-[#020617]/80 backdrop-blur-md"
+function timeAgo(isoStr) {
+  if (!isoStr) return 'Recently';
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)  return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function getInitials(str = '') {
+  return str.slice(0, 2).toUpperCase();
+}
+
+/* ─── Project Card ─── */
+function ProjectCard({ project }) {
+  const color  = projectColor(project.name);
+  const edited = timeAgo(project.updatedAt);
+
+  return (
+    <Link to={`/workspace/${project.id}`} className="block group">
+      <motion.div
+        whileHover={{ y: -4 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+        className="relative h-full bg-[#0c1220] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.14)] rounded-2xl overflow-hidden flex flex-col transition-colors"
+      >
+        {/* Color bar */}
+        <div className="h-[3px] w-full" style={{ background: `linear-gradient(90deg, ${color}, transparent)` }} />
+
+        {/* Hover glow */}
+        <div
+          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl"
+          style={{ background: `radial-gradient(circle at 50% 0%, ${color}10, transparent 60%)` }}
         />
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative w-full max-w-md bg-[#0b1326]/90 backdrop-blur-xl border border-[rgba(255,255,255,0.1)] rounded-2xl p-6 shadow-[0_0_40px_rgba(59,130,246,0.15)]"
-        >
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#3b82f6] to-[#8b5cf6]"></div>
-          <div className="flex justify-between items-center mb-6 mt-2">
-            <h3 className="text-xl font-bold text-white tracking-tight">{title}</h3>
-            <button onClick={onClose} className="text-[#8c909f] hover:text-white bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] p-1.5 rounded-lg transition-all">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-          {children}
-        </motion.div>
-      </div>
-    )}
-  </AnimatePresence>
-);
 
+        <div className="p-6 flex flex-col flex-1 relative">
+          {/* Icon + badge */}
+          <div className="flex items-start justify-between mb-5">
+            <div
+              className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform"
+              style={{ backgroundColor: `${color}15`, border: `1px solid ${color}25` }}
+            >
+              <Activity className="h-5 w-5" style={{ color }} />
+            </div>
+            {project.isPublic ? (
+              <Badge variant="green" dot>Public</Badge>
+            ) : (
+              <Badge variant="gray"><Lock className="h-2.5 w-2.5 mr-1" />Private</Badge>
+            )}
+          </div>
+
+          {/* Title */}
+          <h3 className="font-bold text-[#f0f4ff] text-[16px] mb-2 group-hover:text-white transition-colors line-clamp-1">
+            {project.name}
+          </h3>
+
+          {/* Description */}
+          <p className="text-sm text-[#4a5568] leading-relaxed mb-6 flex-1 line-clamp-2">
+            {project.description || 'Click to open and start collaborating with your team.'}
+          </p>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between pt-4 border-t border-[rgba(255,255,255,0.04)] text-xs text-[#2d3748]">
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3 w-3" />
+              {edited}
+            </div>
+            <motion.span
+              initial={{ opacity: 0, x: -6 }}
+              whileHover={{ opacity: 1, x: 0 }}
+              className="flex items-center gap-1 text-[#3b82f6] font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              Open <ChevronRight className="h-3 w-3" />
+            </motion.span>
+          </div>
+        </div>
+      </motion.div>
+    </Link>
+  );
+}
+
+/* ─── Empty state ─── */
+function EmptyState({ onNew, filtered }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="col-span-full flex flex-col items-center justify-center py-24 text-center"
+    >
+      <div className="relative mb-6">
+        <div className="w-20 h-20 rounded-3xl bg-[#3b82f6]/10 border border-[#3b82f6]/20 flex items-center justify-center">
+          <Code2 className="h-9 w-9 text-[#3b82f6] opacity-60" />
+        </div>
+        <motion.div
+          animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0, 0.4] }}
+          transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
+          className="absolute inset-0 rounded-3xl border border-[#3b82f6]/30"
+        />
+      </div>
+      <h3 className="text-xl font-bold text-[#f0f4ff] mb-2">
+        {filtered ? 'No matching projects' : 'No projects yet'}
+      </h3>
+      <p className="text-[#4a5568] text-sm mb-8 max-w-xs">
+        {filtered
+          ? 'Try a different search term or clear the filter.'
+          : 'Create your first project to start collaborating.'}
+      </p>
+      {!filtered && (
+        <Button onClick={onNew} size="md" icon={<Plus className="h-4 w-4" />}>
+          Create Project
+        </Button>
+      )}
+    </motion.div>
+  );
+}
+
+/* ─── Main Dashboard ─── */
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [workspaces, setWorkspaces] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [joinCode, setJoinCode] = useState('');
-  
-  // Selection state
+  const [projects,   setProjects]   = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [search,     setSearch]     = useState('');
+  const [joinCode,   setJoinCode]   = useState('');
+
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(null);
 
-  // Modals state
-  const [isWorkspaceModalOpen, setWorkspaceModalOpen] = useState(false);
-  const [isProjectModalOpen, setProjectModalOpen] = useState(false);
-  const [newItemName, setNewItemName] = useState('');
+  const [wsModalOpen,   setWsModalOpen]   = useState(false);
+  const [projModalOpen, setProjModalOpen] = useState(false);
+  const [newItemName,   setNewItemName]   = useState('');
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     try {
-      const wsRes = await api.get('/workspaces');
-      const wsList = wsRes.data.data.workspaces || [];
-      setWorkspaces(wsList);
-      
-      const projRes = await api.get(`/projects`);
+      const [wsRes, projRes] = await Promise.all([
+        api.get('/workspaces'),
+        api.get('/projects'),
+      ]);
+      setWorkspaces(wsRes.data.data.workspaces || []);
       setProjects(projRes.data.data.projects || []);
     } catch (err) {
       console.error(err);
@@ -92,22 +188,22 @@ export default function Dashboard() {
     try {
       await api.post('/workspaces', { name: newItemName });
       setNewItemName('');
-      setWorkspaceModalOpen(false);
+      setWsModalOpen(false);
       fetchData();
-    } catch (err) { alert('Failed to create workspace'); }
+    } catch { alert('Failed to create workspace'); }
   };
 
   const handleCreateProject = async (e) => {
     e.preventDefault();
-    const wsId = selectedWorkspaceId || (workspaces.length > 0 ? workspaces[0].id : null);
+    const wsId = selectedWorkspaceId || (workspaces[0]?.id ?? null);
     if (!wsId) return alert('Create a workspace first');
     if (!newItemName.trim()) return;
     try {
       await api.post('/projects', { name: newItemName, workspaceId: wsId });
       setNewItemName('');
-      setProjectModalOpen(false);
+      setProjModalOpen(false);
       fetchData();
-    } catch (err) { alert('Failed to create project'); }
+    } catch { alert('Failed to create project'); }
   };
 
   const handleJoinProject = async (e) => {
@@ -122,336 +218,346 @@ export default function Dashboard() {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
-  // Filter projects by selected workspace
   const filteredProjects = useMemo(() => {
-    if (!selectedWorkspaceId) return projects;
-    // Attempt to filter by workspaceId (assuming backend returns it, fallback to showing all if property doesn't exist)
-    return projects.filter(p => p.workspaceId === selectedWorkspaceId || !p.workspaceId);
-  }, [projects, selectedWorkspaceId]);
+    let list = projects;
+    if (selectedWorkspaceId) {
+      list = list.filter(p => p.workspaceId === selectedWorkspaceId || !p.workspaceId);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(p => p.name.toLowerCase().includes(q) || p.description?.toLowerCase().includes(q));
+    }
+    return list;
+  }, [projects, selectedWorkspaceId, search]);
 
-  const selectedWorkspaceName = workspaces.find(w => w.id === selectedWorkspaceId)?.name;
+  if (loading) return <PageSpinner text="Loading your workspace..." />;
 
-  if (loading) return (
-    <div className="min-h-screen bg-[#020617] flex items-center justify-center">
-      <motion.div 
-        animate={{ rotate: 360 }} 
-        transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-      >
-        <Loader2 className="h-10 w-10 text-[#3b82f6]" />
-      </motion.div>
-    </div>
-  );
+  const avatarChar = (user?.username || user?.email || 'U')[0].toUpperCase();
+  const selectedWsName = workspaces.find(w => w.id === selectedWorkspaceId)?.name;
 
   return (
-    <div className="min-h-screen bg-[#020617] text-[#dae2fd] font-['Inter'] selection:bg-[#3b82f6]/30 overflow-hidden relative">
-      
-      {/* Background Glow Effects (Lumina Collaborative) */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
-        <div className="absolute top-[-20%] left-[10%] w-[50%] h-[50%] rounded-full bg-[#3b82f6] opacity-[0.05] blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-[#8b5cf6] opacity-[0.05] blur-[120px]" />
-      </div>
-
-      {/* Navigation */}
-      <motion.nav 
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="backdrop-blur-[20px] bg-[#0b1326]/60 border-b border-[rgba(255,255,255,0.05)] px-8 py-4 flex justify-between items-center sticky top-0 z-20"
+    <div className="min-h-screen bg-[#070b14] text-[#f0f4ff] font-['Inter'] flex">
+      {/* ─── LEFT SIDEBAR ─── */}
+      <motion.aside
+        initial={{ x: -40, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="w-64 shrink-0 border-r border-[rgba(255,255,255,0.05)] bg-[#0c1220] flex flex-col h-screen sticky top-0"
       >
-        <Link to="/" className="flex items-center gap-3 group">
-          <motion.div 
-            whileHover={{ rotate: 15, scale: 1.1 }}
-            className="bg-[#3b82f6] p-2 rounded-xl shadow-[0_0_15px_rgba(59,130,246,0.3)]"
-          >
-            <Code2 className="h-5 w-5 text-white" />
-          </motion.div>
-          <span className="font-bold text-xl text-white tracking-tight group-hover:text-[#3b82f6] transition-colors">CodeSync</span>
-        </Link>
-        <div className="flex items-center gap-6">
-          <div className="hidden md:flex items-center gap-3 bg-[#171f33]/50 px-4 py-2 rounded-full border border-[rgba(255,255,255,0.05)]">
-            <div className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
-            <span className="text-sm font-medium text-[#8c909f]">{user?.email}</span>
+        {/* Brand */}
+        <div className="px-5 py-5 border-b border-[rgba(255,255,255,0.05)]">
+          <Link to="/" className="flex items-center gap-3 group">
+            <div className="relative">
+              <div className="absolute inset-0 bg-[#3b82f6] rounded-xl blur-md opacity-40 group-hover:opacity-70 transition-opacity" />
+              <div className="relative bg-gradient-to-br from-[#3b82f6] to-[#8b5cf6] p-2 rounded-xl">
+                <Code2 className="h-5 w-5 text-white" />
+              </div>
+            </div>
+            <div>
+              <span className="font-bold text-base text-white">Code<span className="text-[#3b82f6]">Sync</span></span>
+              <p className="text-[9px] text-[#2d3748] uppercase tracking-widest">Dashboard</p>
+            </div>
+          </Link>
+        </div>
+
+        {/* Nav */}
+        <nav className="px-3 py-4 space-y-0.5">
+          {[
+            { icon: LayoutDashboard, label: 'All Projects', id: null },
+            { icon: Zap,             label: 'Recent',       id: 'recent', disabled: true },
+            { icon: GitBranch,       label: 'Shared',       id: 'shared', disabled: true },
+          ].map(item => (
+            <button
+              key={item.label}
+              onClick={() => !item.disabled && setSelectedWorkspaceId(item.id)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all
+                ${!item.disabled && item.id === selectedWorkspaceId
+                  ? 'bg-[#3b82f6]/10 text-[#60a5fa] border border-[#3b82f6]/20'
+                  : item.disabled
+                    ? 'text-[#2d3748] cursor-not-allowed'
+                    : 'text-[#4a5568] hover:text-[#8892b0] hover:bg-[rgba(255,255,255,0.04)]'
+                }`}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+              {item.disabled && <span className="ml-auto text-[9px] text-[#2d3748] uppercase tracking-wider">soon</span>}
+            </button>
+          ))}
+        </nav>
+
+        {/* Workspaces */}
+        <div className="px-3 mt-4 flex-1 overflow-y-auto">
+          <div className="flex items-center justify-between px-3 mb-2">
+            <span className="text-[10px] font-bold text-[#2d3748] uppercase tracking-widest">Workspaces</span>
+            <motion.button
+              whileHover={{ scale: 1.15, rotate: 90 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => { setNewItemName(''); setWsModalOpen(true); }}
+              className="p-1 text-[#2d3748] hover:text-[#8892b0] hover:bg-[rgba(255,255,255,0.05)] rounded-md transition-all"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </motion.button>
           </div>
-          <motion.button 
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleLogout} 
-            className="p-2 hover:bg-red-500/10 text-[#8c909f] hover:text-red-500 rounded-xl transition-colors" 
+
+          <div className="space-y-0.5">
+            {workspaces.map((ws, i) => {
+              const isSel = selectedWorkspaceId === ws.id;
+              return (
+                <motion.button
+                  key={ws.id}
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  onClick={() => setSelectedWorkspaceId(isSel ? null : ws.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left
+                    ${isSel
+                      ? 'bg-[#8b5cf6]/10 text-[#a78bfa] border border-[#8b5cf6]/20'
+                      : 'text-[#4a5568] hover:text-[#8892b0] hover:bg-[rgba(255,255,255,0.04)]'
+                    }`}
+                >
+                  {isSel
+                    ? <FolderOpen className="h-4 w-4 shrink-0 text-[#8b5cf6]" />
+                    : <Folder     className="h-4 w-4 shrink-0" />
+                  }
+                  <span className="truncate">{ws.name}</span>
+                </motion.button>
+              );
+            })}
+
+            {workspaces.length === 0 && (
+              <div className="px-3 py-4 text-xs text-[#2d3748] text-center">
+                <p className="mb-2">No workspaces yet</p>
+                <button
+                  onClick={() => { setNewItemName(''); setWsModalOpen(true); }}
+                  className="text-[#3b82f6] hover:text-[#60a5fa] transition-colors font-medium"
+                >
+                  + Create one
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Join code */}
+        <div className="p-4 border-t border-[rgba(255,255,255,0.05)]">
+          <p className="text-[10px] font-bold text-[#2d3748] uppercase tracking-widest mb-2 px-1">
+            Join via Code
+          </p>
+          <form onSubmit={handleJoinProject} className="flex gap-2">
+            <input
+              type="text"
+              placeholder="X7YB9Z"
+              value={joinCode}
+              onChange={e => setJoinCode(e.target.value.toUpperCase())}
+              maxLength={8}
+              className="flex-1 px-3 py-2 rounded-xl bg-[#111827] border border-[rgba(255,255,255,0.07)] text-xs text-white placeholder:text-[#2d3748] focus:outline-none focus:border-[#3b82f6]/50 uppercase font-mono tracking-widest transition-colors"
+            />
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              type="submit"
+              className="px-3 py-2 rounded-xl bg-[#3b82f6] text-white text-xs font-bold shrink-0 hover:bg-[#2563eb] transition-colors"
+            >
+              Join
+            </motion.button>
+          </form>
+        </div>
+
+        {/* User */}
+        <div className="p-4 border-t border-[rgba(255,255,255,0.05)] flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3b82f6] to-[#8b5cf6] flex items-center justify-center font-bold text-sm text-white shrink-0 shadow-lg">
+            {avatarChar}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-[#f0f4ff] truncate">
+              {user?.username || 'User'}
+            </p>
+            <p className="text-xs text-[#2d3748] truncate">{user?.email}</p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => { logout(); navigate('/login'); }}
             title="Logout"
+            className="p-1.5 text-[#2d3748] hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all shrink-0"
           >
-            <LogOut className="h-5 w-5" />
+            <LogOut className="h-4 w-4" />
           </motion.button>
         </div>
-      </motion.nav>
+      </motion.aside>
 
-      <div className="max-w-7xl mx-auto p-8 grid grid-cols-1 lg:grid-cols-4 gap-8 relative z-10">
-        
-        {/* Left Sidebar */}
-        <div className="lg:col-span-1 space-y-6">
-          
-          {/* Join via Code */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            className="backdrop-blur-xl bg-[#0b1326]/60 border border-[rgba(255,255,255,0.05)] rounded-2xl p-6 shadow-xl"
-          >
-            <h3 className="text-xs font-semibold uppercase tracking-wider mb-4 flex items-center gap-2 text-[#8c909f]">
-              <div className="bg-[#3b82f6]/10 p-1.5 rounded-lg text-[#3b82f6]"><Users className="h-4 w-4"/></div>
-              Join Collaboration
-            </h3>
-            <form onSubmit={handleJoinProject} className="flex flex-col gap-3">
-              <input 
-                type="text" 
-                placeholder="e.g. X7YB9Z" 
-                value={joinCode}
-                onChange={e => setJoinCode(e.target.value.toUpperCase())}
-                className="w-full px-4 py-2.5 rounded-xl bg-[#171f33]/50 border border-[rgba(255,255,255,0.05)] text-sm focus:outline-none focus:border-[#3b82f6] focus:ring-1 focus:ring-[#3b82f6] uppercase transition-all placeholder:text-[#424754]"
-              />
-              <motion.button 
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                type="submit" 
-                className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white py-2.5 px-4 rounded-xl text-sm font-medium shadow-[0_0_15px_rgba(59,130,246,0.2)] transition-all flex justify-center"
-              >
-                Join Workspace
-              </motion.button>
-            </form>
-          </motion.div>
-
-          {/* Workspaces */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="backdrop-blur-xl bg-[#0b1326]/60 border border-[rgba(255,255,255,0.05)] rounded-2xl p-6 shadow-xl flex flex-col min-h-[300px]"
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-[#8c909f] flex items-center gap-2">
-                <div className="bg-[#8b5cf6]/10 p-1.5 rounded-lg text-[#8b5cf6]"><Folder className="h-4 w-4"/></div>
-                Workspaces
-              </h3>
-              <motion.button 
-                whileHover={{ scale: 1.1, rotate: 90 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => { setNewItemName(''); setWorkspaceModalOpen(true); }} 
-                className="text-[#3b82f6] hover:text-white bg-[#3b82f6]/10 hover:bg-[#3b82f6] p-1.5 rounded-lg transition-all"
-                title="New Workspace"
-              >
-                <Plus className="h-4 w-4"/>
-              </motion.button>
-            </div>
-            
-            <div className="space-y-1.5 flex-1 overflow-y-auto pr-1">
-              <motion.div 
-                onClick={() => setSelectedWorkspaceId(null)}
-                className={`group flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all cursor-pointer ${!selectedWorkspaceId ? 'bg-[#3b82f6]/10 border-[#3b82f6]/30' : 'bg-transparent border-transparent hover:bg-[rgba(255,255,255,0.03)]'}`}
-              >
-                <Folder className={`h-4 w-4 transition-colors ${!selectedWorkspaceId ? 'text-[#3b82f6] fill-[#3b82f6]/20' : 'text-[#8c909f] group-hover:text-[#dae2fd]'}`} />
-                <span className={`text-sm font-medium transition-colors ${!selectedWorkspaceId ? 'text-white' : 'text-[#8c909f] group-hover:text-white'}`}>All Projects</span>
-              </motion.div>
-
-              {workspaces.map((w, idx) => {
-                const isSelected = selectedWorkspaceId === w.id;
-                return (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 + (idx * 0.05) }}
-                    key={w.id} 
-                    onClick={() => setSelectedWorkspaceId(w.id)}
-                    className={`group flex items-center gap-3 px-4 py-2.5 rounded-xl border transition-all cursor-pointer ${isSelected ? 'bg-[#8b5cf6]/10 border-[#8b5cf6]/30' : 'bg-transparent border-transparent hover:bg-[rgba(255,255,255,0.03)]'}`}
-                  >
-                    <Folder className={`h-4 w-4 transition-colors ${isSelected ? 'text-[#8b5cf6] fill-[#8b5cf6]/20' : 'text-[#8c909f] group-hover:text-[#dae2fd]'}`} />
-                    <span className={`text-sm font-medium transition-colors ${isSelected ? 'text-white' : 'text-[#8c909f] group-hover:text-white'}`}>{w.name}</span>
-                  </motion.div>
-                );
-              })}
-              
-              {workspaces.length === 0 && (
-                <div className="text-xs text-[#424754] text-center py-6 border border-dashed border-[rgba(255,255,255,0.05)] rounded-xl mt-4">
-                  No folders created yet.
-                </div>
+      {/* ─── MAIN CONTENT ─── */}
+      <main className="flex-1 min-w-0 overflow-y-auto">
+        {/* Top bar */}
+        <motion.div
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.15 }}
+          className="sticky top-0 z-10 bg-[#070b14]/80 backdrop-blur-xl border-b border-[rgba(255,255,255,0.05)] px-8 py-4 flex items-center gap-4"
+        >
+          <div className="flex-1">
+            <div className="flex items-center gap-2 text-sm text-[#4a5568]">
+              <span>Dashboard</span>
+              {selectedWsName && (
+                <>
+                  <ChevronRight className="h-3.5 w-3.5" />
+                  <span className="text-[#8892b0]">{selectedWsName}</span>
+                </>
               )}
             </div>
-          </motion.div>
-        </div>
+          </div>
 
-        {/* Main Content - Projects */}
-        <div className="lg:col-span-3">
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
+          {/* Search bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#2d3748]" />
+            <input
+              type="text"
+              placeholder="Search projects..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-64 pl-9 pr-4 py-2 rounded-xl bg-[#111827] border border-[rgba(255,255,255,0.07)] text-sm text-[#f0f4ff] placeholder:text-[#2d3748] focus:outline-none focus:border-[#3b82f6]/50 transition-colors"
+            />
+          </div>
+
+          <Button
+            size="sm"
+            icon={<Plus className="h-3.5 w-3.5" />}
+            onClick={() => { setNewItemName(''); setProjModalOpen(true); }}
+          >
+            New Project
+          </Button>
+        </motion.div>
+
+        {/* Content */}
+        <div className="p-8">
+          {/* Stats row */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4"
+            transition={{ delay: 0.2 }}
+            className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10"
+          >
+            {[
+              { label: 'Total Projects',   value: projects.length,                  icon: Code2,    color: '#3b82f6' },
+              { label: 'Workspaces',       value: workspaces.length,                icon: Folder,   color: '#8b5cf6' },
+              { label: 'Collaborations',   value: projects.filter(p => p.isPublic).length, icon: Users, color: '#22c55e' },
+              { label: 'Active Today',     value: 0,                                icon: Activity, color: '#f59e0b' },
+            ].map(({ label, value, icon: Icon, color }) => (
+              <div
+                key={label}
+                className="p-5 rounded-2xl bg-[#0c1220] border border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.1)] transition-colors"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs text-[#4a5568] font-medium">{label}</span>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}15` }}>
+                    <Icon className="h-4 w-4" style={{ color }} />
+                  </div>
+                </div>
+                <p className="text-3xl font-extrabold text-white tabular-nums">{value}</p>
+              </div>
+            ))}
+          </motion.div>
+
+          {/* Projects heading */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.25 }}
+            className="flex items-center justify-between mb-6"
           >
             <div>
-              <h2 className="text-3xl font-bold text-white tracking-tight mb-1 flex items-center gap-3">
-                {selectedWorkspaceId ? (
-                  <>
-                    <button onClick={() => setSelectedWorkspaceId(null)} className="text-[#8c909f] hover:text-white transition-colors">
-                      <ChevronLeft className="h-6 w-6" />
-                    </button>
-                    {selectedWorkspaceName}
-                  </>
-                ) : 'All Projects'}
+              <h2 className="text-xl font-bold text-white">
+                {selectedWsName ? selectedWsName : 'All Projects'}
               </h2>
-              <p className="text-sm text-[#8c909f]">{selectedWorkspaceId ? 'Projects in this workspace' : 'Continue where you left off'}</p>
+              <p className="text-sm text-[#4a5568] mt-0.5">
+                {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''}
+                {search && ` matching "${search}"`}
+              </p>
             </div>
-            
-            <motion.button 
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => { setNewItemName(''); setProjectModalOpen(true); }} 
-              className="bg-[#3b82f6] text-white flex items-center gap-2 py-2.5 px-5 rounded-xl font-medium shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)] transition-all whitespace-nowrap"
-            >
-              <Plus className="h-4 w-4"/> New Project
-            </motion.button>
+            {selectedWorkspaceId && (
+              <button
+                onClick={() => setSelectedWorkspaceId(null)}
+                className="text-sm text-[#4a5568] hover:text-[#8892b0] transition-colors flex items-center gap-1"
+              >
+                <X className="h-3.5 w-3.5" /> Clear filter
+              </button>
+            )}
           </motion.div>
 
-          <motion.div 
-            variants={staggerContainer}
-            initial="initial"
-            animate="animate"
-            className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+          {/* Project grid */}
+          <motion.div
+            layout
+            className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"
           >
-            {filteredProjects.map(p => (
-              <motion.div key={p.id} variants={fadeInUp} className="h-full">
-                <Link to={`/workspace/${p.id}`} className="block h-full">
-                  <motion.div 
-                    whileHover={{ y: -5 }}
-                    className="h-full backdrop-blur-xl bg-[#0b1326]/60 border border-[rgba(255,255,255,0.05)] hover:border-[#3b82f6]/50 rounded-2xl p-6 transition-all shadow-xl hover:shadow-[0_10px_30px_rgba(59,130,246,0.15)] group flex flex-col relative overflow-hidden"
-                  >
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#3b82f6]/0 via-[#3b82f6]/0 to-[#3b82f6]/0 group-hover:from-[#3b82f6] group-hover:to-[#8b5cf6] transition-all duration-500 opacity-0 group-hover:opacity-100"></div>
-                    
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="bg-[#171f33] p-3 rounded-xl text-[#3b82f6] group-hover:bg-[#3b82f6] group-hover:text-white transition-all duration-300 shadow-[0_0_10px_rgba(0,0,0,0.5)]">
-                        <Activity className="h-5 w-5"/>
-                      </div>
-                      {p.isPublic && (
-                        <span className="text-[9px] uppercase font-bold tracking-widest bg-green-500/10 border border-green-500/20 text-green-400 px-2.5 py-1 rounded-full">
-                          Public
-                        </span>
-                      )}
-                    </div>
-                    
-                    <h3 className="font-bold text-lg text-white mb-2 group-hover:text-[#3b82f6] transition-colors">{p.name}</h3>
-                    <p className="text-sm text-[#8c909f] mb-6 line-clamp-2 flex-grow">
-                      {p.description || 'No description provided. Click to open the workspace and start collaborating.'}
-                    </p>
-                    
-                    <div className="flex justify-between items-center text-[11px] font-semibold uppercase tracking-wider text-[#424754] pt-4 border-t border-[rgba(255,255,255,0.05)]">
-                      <span>Updated recently</span>
-                      <span className="flex items-center gap-1 text-[#3b82f6] opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0 duration-300">
-                        Open <ChevronRight className="h-3 w-3" />
-                      </span>
-                    </div>
-                  </motion.div>
-                </Link>
-              </motion.div>
-            ))}
-            
-            {filteredProjects.length === 0 && (
-              <motion.div 
-                variants={fadeInUp}
-                className="col-span-full py-20 flex flex-col items-center justify-center text-center bg-[#0b1326]/30 border border-dashed border-[rgba(255,255,255,0.1)] rounded-3xl backdrop-blur-sm"
-              >
-                <div className="bg-[#3b82f6]/10 p-5 rounded-full mb-4 shadow-[0_0_20px_rgba(59,130,246,0.1)]">
-                  <Code2 className="h-8 w-8 text-[#3b82f6]" />
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2 tracking-tight">No projects found</h3>
-                <p className="text-[#8c909f] mb-6 max-w-sm text-sm">
-                  {selectedWorkspaceId ? "This workspace doesn't have any projects yet." : "Create your first project to start collaborating with your team."}
-                </p>
-                <button 
-                  onClick={() => { setNewItemName(''); setProjectModalOpen(true); }} 
-                  className="bg-[#3b82f6] hover:bg-[#2563eb] text-white px-6 py-2.5 rounded-xl font-medium transition-all shadow-[0_0_15px_rgba(59,130,246,0.2)]"
+            <AnimatePresence>
+              {filteredProjects.map((p, i) => (
+                <motion.div
+                  key={p.id}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ delay: i * 0.04 }}
                 >
-                  Create Project
-                </button>
-              </motion.div>
+                  <ProjectCard project={p} />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+
+            {filteredProjects.length === 0 && (
+              <EmptyState
+                onNew={() => { setNewItemName(''); setProjModalOpen(true); }}
+                filtered={search.length > 0 || selectedWorkspaceId !== null}
+              />
             )}
           </motion.div>
         </div>
-      </div>
+      </main>
 
-      {/* Modals */}
-      <Modal 
-        isOpen={isWorkspaceModalOpen} 
-        onClose={() => setWorkspaceModalOpen(false)} 
-        title="Create Workspace"
-      >
-        <form onSubmit={handleCreateWorkspace}>
-          <div className="mb-6">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[#8c909f] mb-2">Workspace Name</label>
-            <input 
-              type="text" 
-              autoFocus
-              value={newItemName}
-              onChange={e => setNewItemName(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-[#171f33]/50 border border-[rgba(255,255,255,0.05)] text-white focus:outline-none focus:border-[#3b82f6] focus:ring-1 focus:ring-[#3b82f6] transition-all placeholder:text-[#424754]"
-              placeholder="e.g. Personal Projects"
-            />
-          </div>
+      {/* ─── MODALS ─── */}
+      <Modal isOpen={wsModalOpen} onClose={() => setWsModalOpen(false)} title="Create Workspace">
+        <form onSubmit={handleCreateWorkspace} className="space-y-5">
+          <Input
+            label="Workspace Name"
+            required
+            autoFocus
+            placeholder="e.g. Personal Projects"
+            value={newItemName}
+            onChange={e => setNewItemName(e.target.value)}
+            icon={<Folder className="h-4 w-4" />}
+          />
           <div className="flex justify-end gap-3">
-            <button 
-              type="button"
-              onClick={() => setWorkspaceModalOpen(false)}
-              className="px-5 py-2.5 rounded-xl text-sm font-medium text-[#8c909f] hover:text-white hover:bg-[rgba(255,255,255,0.05)] transition-all"
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit"
-              className="px-5 py-2.5 rounded-xl text-sm font-medium bg-[#3b82f6] hover:bg-[#2563eb] text-white shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all"
-            >
-              Create Workspace
-            </button>
+            <Button variant="ghost" onClick={() => setWsModalOpen(false)} type="button">Cancel</Button>
+            <Button type="submit" icon={<Plus className="h-4 w-4" />}>Create Workspace</Button>
           </div>
         </form>
       </Modal>
 
-      <Modal 
-        isOpen={isProjectModalOpen} 
-        onClose={() => setProjectModalOpen(false)} 
-        title="Create Project"
-      >
-        <form onSubmit={handleCreateProject}>
-          <div className="mb-6">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-[#8c909f] mb-2">Project Name</label>
-            <input 
-              type="text" 
-              autoFocus
-              value={newItemName}
-              onChange={e => setNewItemName(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl bg-[#171f33]/50 border border-[rgba(255,255,255,0.05)] text-white focus:outline-none focus:border-[#3b82f6] focus:ring-1 focus:ring-[#3b82f6] transition-all placeholder:text-[#424754]"
-              placeholder="e.g. Authentication API"
-            />
-            <p className="text-xs text-[#424754] mt-3 bg-[rgba(255,255,255,0.02)] p-2.5 rounded-lg border border-[rgba(255,255,255,0.02)]">
-              Will be created in <strong className="text-[#8c909f]">{selectedWorkspaceId ? selectedWorkspaceName : (workspaces.length > 0 ? workspaces[0].name : 'a workspace')}</strong>.
-            </p>
-          </div>
+      <Modal isOpen={projModalOpen} onClose={() => setProjModalOpen(false)} title="Create Project">
+        <form onSubmit={handleCreateProject} className="space-y-5">
+          <Input
+            label="Project Name"
+            required
+            autoFocus
+            placeholder="e.g. Authentication API"
+            value={newItemName}
+            onChange={e => setNewItemName(e.target.value)}
+            icon={<Code2 className="h-4 w-4" />}
+          />
+          <p className="text-xs text-[#4a5568] bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] rounded-xl px-4 py-3">
+            Will be created in{' '}
+            <strong className="text-[#8892b0]">
+              {selectedWorkspaceId
+                ? workspaces.find(w => w.id === selectedWorkspaceId)?.name
+                : workspaces[0]?.name ?? 'a workspace'}
+            </strong>
+          </p>
           <div className="flex justify-end gap-3">
-            <button 
-              type="button"
-              onClick={() => setProjectModalOpen(false)}
-              className="px-5 py-2.5 rounded-xl text-sm font-medium text-[#8c909f] hover:text-white hover:bg-[rgba(255,255,255,0.05)] transition-all"
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit"
-              className="px-5 py-2.5 rounded-xl text-sm font-medium bg-[#3b82f6] hover:bg-[#2563eb] text-white shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all"
-            >
-              Create Project
-            </button>
+            <Button variant="ghost" onClick={() => setProjModalOpen(false)} type="button">Cancel</Button>
+            <Button type="submit" icon={<Plus className="h-4 w-4" />}>Create Project</Button>
           </div>
         </form>
       </Modal>
-
     </div>
   );
 }
