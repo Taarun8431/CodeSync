@@ -1,10 +1,8 @@
-import { useRef, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useInView, useMotionValue, useSpring, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Code2, Users, Zap, Server, ChevronRight, ArrowRight,
-  Rocket, Globe, Shield, GitBranch, Terminal, Cpu,
-  Star, CheckCircle2, Play, MessageSquare
+  Rocket, Globe, Shield, GitBranch, Terminal, CheckCircle2, Play, MessageSquare
 } from 'lucide-react';
 import Navbar from '../components/layout/Navbar';
 
@@ -15,28 +13,6 @@ const fadeUp = (delay = 0) => ({
   viewport: { once: true, margin: '-60px' },
   transition: { duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] },
 });
-
-function Counter({ target, suffix = '', duration = 2 }) {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true });
-  const motionVal = useMotionValue(0);
-  const spring = useSpring(motionVal, { duration: duration * 1000, bounce: 0 });
-  const [display, setDisplay] = useState('0');
-
-  useEffect(() => {
-    if (inView) motionVal.set(target);
-  }, [inView, target, motionVal]);
-
-  useEffect(() => {
-    return spring.on('change', v => {
-      setDisplay(Math.round(v).toLocaleString());
-    });
-  }, [spring]);
-
-  return (
-    <span ref={ref} className="tabular-nums">{display}{suffix}</span>
-  );
-}
 
 /* ─── Features ─── */
 const features = [
@@ -90,11 +66,14 @@ const features = [
   },
 ];
 
-const stats = [
-  { value: 12000, suffix: '+', label: 'Developers', icon: Users },
-  { value: 50000, suffix: '+', label: 'Projects Created', icon: GitBranch },
-  { value: 2000000, suffix: '+', label: 'Code Executions', icon: Play },
-  { value: 99.9, suffix: '%', label: 'Uptime', icon: CheckCircle2 },
+/* Real tech stack used in this project */
+const techStack = [
+  { label: 'Yjs CRDTs',       desc: 'Conflict-free real-time sync',      color: '#3b82f6', icon: Users },
+  { label: 'Docker Sandbox',  desc: 'Ephemeral container execution',      color: '#22c55e', icon: Terminal },
+  { label: 'Monaco Editor',   desc: 'VS Code engine in the browser',      color: '#8b5cf6', icon: Code2 },
+  { label: 'JWT + Refresh',   desc: 'Stateless auth with token rotation', color: '#f59e0b', icon: Shield },
+  { label: 'WebSocket / Y-WS',desc: 'Persistent collaborative sessions',  color: '#ec4899', icon: GitBranch },
+  { label: 'REST API',        desc: 'Express + Prisma + PostgreSQL',       color: '#06b6d4', icon: Server },
 ];
 
 const codeLines = [
@@ -334,24 +313,31 @@ export default function Home({ theme, toggleTheme }) {
         </motion.div>
       </section>
 
-      {/* ─── STATS ─── */}
+      {/* ─── TECH STACK ─── */}
       <section className="py-20 border-y border-[rgba(255,255,255,0.05)] relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-[#070b14] via-[#0c1220] to-[#070b14]" />
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map(({ value, suffix, label, icon: Icon }, i) => (
+          <motion.div {...fadeUp()} className="text-center mb-12">
+            <p className="text-[11px] font-bold text-[#2d3748] uppercase tracking-widest mb-3">Built with production-grade technology</p>
+            <h3 className="text-2xl font-bold text-white">The real stack under the hood</h3>
+          </motion.div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {techStack.map(({ label, desc, color, icon: Icon }, i) => (
               <motion.div
                 key={i}
-                {...fadeUp(i * 0.1)}
-                className="text-center group"
+                {...fadeUp(i * 0.07)}
+                whileHover={{ y: -4, borderColor: `${color}40` }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                className="group flex flex-col items-center text-center p-5 rounded-2xl bg-[#0c1220] border border-[rgba(255,255,255,0.05)] cursor-default transition-colors"
               >
-                <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.06)] mb-4 group-hover:border-[#3b82f6]/30 transition-colors">
-                  <Icon className="h-5 w-5 text-[#3b82f6]" />
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform"
+                  style={{ backgroundColor: `${color}15`, border: `1px solid ${color}25` }}
+                >
+                  <Icon className="h-5 w-5" style={{ color }} />
                 </div>
-                <div className="text-4xl font-extrabold gradient-text tabular-nums mb-1">
-                  <Counter target={value} suffix={suffix} />
-                </div>
-                <div className="text-sm text-[#4a5568] font-medium">{label}</div>
+                <p className="text-[13px] font-bold text-[#f0f4ff] mb-1">{label}</p>
+                <p className="text-[11px] text-[#4a5568] leading-snug">{desc}</p>
               </motion.div>
             ))}
           </div>
@@ -487,18 +473,18 @@ export default function Home({ theme, toggleTheme }) {
           {...fadeUp()}
           className="relative z-10 max-w-3xl mx-auto px-4 text-center"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.08)] text-[#8892b0] text-sm font-medium mb-8">
-            <Star className="h-3.5 w-3.5 text-[#f59e0b]" />
-            Trusted by 12,000+ developers worldwide
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#3b82f6]/10 border border-[#3b82f6]/20 text-[#60a5fa] text-sm font-semibold mb-8">
+            <Zap className="h-3.5 w-3.5" />
+            Open source internship project
           </div>
 
           <h2 className="text-4xl md:text-5xl font-extrabold text-white mb-6 tracking-tight leading-tight">
-            Ready to code{' '}
-            <span className="gradient-text">with your team?</span>
+            Built to code{' '}
+            <span className="gradient-text">together</span>
           </h2>
           <p className="text-[#8892b0] text-lg mb-10 leading-relaxed">
-            Join thousands of developers who already ship faster with CodeSync.
-            Free forever, no limits on collaboration.
+            CodeSync is a full-stack collaborative IDE built with Yjs, Docker, Monaco Editor,
+            and WebSockets — designed to demonstrate real-world engineering.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

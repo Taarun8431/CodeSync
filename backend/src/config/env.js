@@ -26,6 +26,12 @@ const config = {
     from: process.env.EMAIL_FROM,
   },
 
+  github: {
+    clientId: process.env.GITHUB_CLIENT_ID,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    callbackUrl: process.env.GITHUB_CALLBACK_URL || 'http://localhost:5000/api/auth/github/callback',
+  },
+
   clientUrl: process.env.CLIENT_URL || 'http://localhost:3000',
 };
 

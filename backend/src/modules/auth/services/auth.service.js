@@ -86,7 +86,7 @@ const register = async ({ username, email, password }) => {
   };
 };
 
-const login = async ({ email, password }) => {
+const login = async ({ email, password, ipAddress, userAgent }) => {
   const user = await prisma.user.findUnique({ where: { email } });
 
   // Use the same error message for both "not found" and "wrong password"
@@ -97,6 +97,16 @@ const login = async ({ email, password }) => {
   if (!isMatch) throw new AppError('Invalid email or password.', 401);
 
   const { accessToken, refreshToken } = await issueTokenPair(user.id);
+
+  // Log session
+  await prisma.sessionLog.create({
+    data: {
+      userId: user.id,
+      action: 'LOGIN',
+      ipAddress,
+      userAgent,
+    },
+  });
 
   return {
     accessToken,
@@ -137,10 +147,113 @@ const refreshTokens = async (token) => {
   return { accessToken, refreshToken: newRefreshToken };
 };
 
-const logout = async (token) => {
+const logout = async (token, { ipAddress, userAgent } = {}) => {
   if (token) {
-    await prisma.refreshToken.deleteMany({ where: { token } });
+    const storedToken = await prisma.refreshToken.findUnique({ where: { token } });
+    if (storedToken) {
+      await prisma.sessionLog.create({
+        data: {
+          userId: storedToken.userId,
+          action: 'LOGOUT',
+          ipAddress,
+          userAgent,
+        },
+      });
+      await prisma.refreshToken.deleteMany({ where: { token } });
+    }
   }
+};
+
+const handleGithubCallback = async (code, { ipAddress, userAgent }) => {
+  if (!code) throw new AppError('GitHub authorization code is required.', 400);
+
+  // 1. Exchange code for access token
+  const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    },
+    body: JSON.stringify({
+      client_id: config.github.clientId,
+      client_secret: config.github.clientSecret,
+      code,
+    })
+  });
+  const tokenData = await tokenResponse.json();
+  if (tokenData.error) {
+    throw new AppError('Failed to exchange GitHub code: ' + tokenData.error_description, 401);
+  }
+
+  const { access_token } = tokenData;
+
+  // 2. Fetch user profile
+  const userResponse = await fetch('https://api.github.com/user', {
+    headers: { Authorization: `Bearer ${access_token}` }
+  });
+  const userProfile = await userResponse.json();
+  if (!userProfile || !userProfile.id) {
+    throw new AppError('Failed to fetch GitHub profile.', 401);
+  }
+
+  // 3. Fetch user emails (if primary email is private)
+  let email = userProfile.email;
+  if (!email) {
+    const emailResponse = await fetch('https://api.github.com/user/emails', {
+      headers: { Authorization: `Bearer ${access_token}` }
+    });
+    const emails = await emailResponse.json();
+    const primaryEmail = emails.find(e => e.primary && e.verified);
+    if (!primaryEmail) {
+      throw new AppError('A verified primary email is required on your GitHub account.', 400);
+    }
+    email = primaryEmail.email;
+  }
+
+  const providerId = userProfile.id.toString();
+  const username = userProfile.login || email.split('@')[0];
+
+  // 4. Find or create user
+  let user = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { providerId },
+        { email }
+      ]
+    }
+  });
+
+  if (!user) {
+    user = await prisma.user.create({
+      data: {
+        id: uuidv4(),
+        email,
+        username, // GitHub logins are unique, but might conflict locally. Prisma will throw if conflict, edge case.
+        authProvider: 'github',
+        providerId,
+        isEmailVerified: true
+      }
+    });
+  } else if (!user.providerId) {
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: { providerId, authProvider: 'github', isEmailVerified: true }
+    });
+  }
+
+  // 5. Generate tokens and log session
+  const { accessToken, refreshToken } = await issueTokenPair(user.id);
+
+  await prisma.sessionLog.create({
+    data: {
+      userId: user.id,
+      action: 'LOGIN',
+      ipAddress,
+      userAgent
+    }
+  });
+
+  return { accessToken, refreshToken, user };
 };
 
 const verifyEmail = async (token) => {
@@ -212,6 +325,7 @@ const resetPassword = async ({ token, password }) => {
 module.exports = {
   register,
   login,
+  handleGithubCallback,
   refreshTokens,
   logout,
   verifyEmail,

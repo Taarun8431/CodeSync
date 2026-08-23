@@ -22,6 +22,12 @@ router.post('/register', authLimiter, registerValidator, validate, authControlle
 // POST /api/auth/login
 router.post('/login', authLimiter, loginValidator, validate, authController.login);
 
+// GET /api/auth/github
+router.get('/github', authLimiter, authController.githubRedirect);
+
+// GET /api/auth/github/callback
+router.get('/github/callback', authLimiter, authController.githubCallback);
+
 // POST /api/auth/refresh
 router.post('/refresh', authLimiter, authController.refresh);
 

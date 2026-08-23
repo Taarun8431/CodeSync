@@ -3,6 +3,7 @@
 const authService = require('../services/auth.service');
 const asyncHandler = require('../../../utils/asyncHandler');
 const { sendSuccess } = require('../../../utils/apiResponse');
+const config = require('../../../config/env');
 
 // ─── Cookie helper ────────────────────────────────────────────────────────────
 const REFRESH_COOKIE = 'refreshToken';
@@ -36,12 +37,38 @@ const register = asyncHandler(async (req, res) => {
 });
 
 const login = asyncHandler(async (req, res) => {
-  const { accessToken, refreshToken, user } = await authService.login(req.body);
+  const ipAddress = req.ip || req.connection?.remoteAddress;
+  const userAgent = req.headers['user-agent'];
+  const { accessToken, refreshToken, user } = await authService.login({
+    ...req.body,
+    ipAddress,
+    userAgent
+  });
   setRefreshCookie(res, refreshToken);
   sendSuccess(res, {
     message: 'Login successful.',
     data: { accessToken, user },
   });
+});
+
+const githubRedirect = asyncHandler(async (req, res) => {
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${config.github.clientId}&redirect_uri=${encodeURIComponent(config.github.callbackUrl)}&scope=user:email`;
+  res.redirect(githubAuthUrl);
+});
+
+const githubCallback = asyncHandler(async (req, res) => {
+  const { code } = req.query;
+  const ipAddress = req.ip || req.connection?.remoteAddress;
+  const userAgent = req.headers['user-agent'];
+  
+  const { accessToken, refreshToken, user } = await authService.handleGithubCallback(code, {
+    ipAddress,
+    userAgent
+  });
+  
+  setRefreshCookie(res, refreshToken);
+  
+  res.redirect(`${config.clientUrl}/auth/callback?token=${accessToken}`);
 });
 
 const refresh = asyncHandler(async (req, res) => {
@@ -57,7 +84,9 @@ const refresh = asyncHandler(async (req, res) => {
 
 const logout = asyncHandler(async (req, res) => {
   const token = req.cookies?.[REFRESH_COOKIE] || req.body?.refreshToken;
-  await authService.logout(token);
+  const ipAddress = req.ip || req.connection?.remoteAddress;
+  const userAgent = req.headers['user-agent'];
+  await authService.logout(token, { ipAddress, userAgent });
   clearRefreshCookie(res);
   sendSuccess(res, { message: 'Logged out successfully.' });
 });
@@ -84,6 +113,8 @@ const resetPassword = asyncHandler(async (req, res) => {
 module.exports = {
   register,
   login,
+  githubRedirect,
+  githubCallback,
   refresh,
   logout,
   verifyEmail,

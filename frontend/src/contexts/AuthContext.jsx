@@ -19,8 +19,7 @@ export function AuthProvider({ children }) {
           setUser(res.data.data.user);
         })
         .catch(() => {
-          // Instead of immediate logout, the interceptor will try to refresh.
-          // If refresh fails, it dispatches auth:logout
+          // Interceptor handles refresh/logout
         })
         .finally(() => {
           setLoading(false);
@@ -29,6 +28,19 @@ export function AuthProvider({ children }) {
       setLoading(false);
     }
   }, [token]);
+
+  // Handle direct GitHub OAuth callback token from URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromUrl = params.get('token');
+    
+    if (tokenFromUrl) {
+      setToken(tokenFromUrl);
+      
+      // Clean up the URL so the token isn't visible in the address bar
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     const handleAuthRefresh = (e) => {
@@ -60,15 +72,25 @@ export function AuthProvider({ children }) {
     await login(email, password); // Auto login after register
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch(err) {
+      // ignore
+    }
     setToken(null);
     setUser(null);
     localStorage.removeItem('token');
     delete api.defaults.headers.common['Authorization'];
   };
 
+  const loginWithGithub = () => {
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+    window.location.href = `${apiUrl}/auth/github`;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, loginWithGithub }}>
       {!loading && children}
     </AuthContext.Provider>
   );

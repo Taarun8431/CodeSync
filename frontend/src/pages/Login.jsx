@@ -35,11 +35,11 @@ const features = [
 ];
 
 export default function Login() {
+  const { login, loginWithGithub } = useAuth();
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [error,    setError]    = useState('');
   const [loading,  setLoading]  = useState(false);
-  const { login }    = useAuth();
   const navigate     = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -144,18 +144,13 @@ export default function Login() {
           </motion.div>
         </div>
 
-        {/* Bottom tagline */}
-        <div className="relative z-10">
+        {/* Bottom — honest project note */}
+        <div className="relative z-10 p-4 rounded-2xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
+          <p className="text-[11px] font-bold text-[#2d3748] uppercase tracking-widest mb-2">About this project</p>
           <p className="text-sm text-[#4a5568] leading-relaxed">
-            "CodeSync reduced our code review time by 60%. It's like Google Docs for code."
+            CodeSync is a portfolio/internship project demonstrating full-stack engineering —
+            Yjs CRDTs, Docker execution, Monaco editor, JWT auth, and WebSocket collaboration.
           </p>
-          <div className="flex items-center gap-3 mt-4">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#3b82f6] to-[#8b5cf6] flex items-center justify-center text-[11px] font-bold text-white">AK</div>
-            <div>
-              <p className="text-sm font-semibold text-[#8892b0]">Aryan K.</p>
-              <p className="text-xs text-[#2d3748]">Lead Engineer, FinStack</p>
-            </div>
-          </div>
         </div>
       </motion.div>
 
@@ -285,6 +280,7 @@ export default function Login() {
               <motion.button
                 key={label}
                 type="button"
+                onClick={label === 'GitHub' ? loginWithGithub : undefined}
                 whileHover={{ scale: 1.03, borderColor: 'rgba(255,255,255,0.15)' }}
                 whileTap={{ scale: 0.97 }}
                 className="flex items-center justify-center gap-2.5 py-3 rounded-xl bg-[#111827] border border-[rgba(255,255,255,0.07)] text-[#8892b0] hover:text-[#f0f4ff] text-sm font-medium transition-all"

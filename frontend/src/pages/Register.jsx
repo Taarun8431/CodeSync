@@ -38,7 +38,7 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [error,    setError]    = useState('');
   const [loading,  setLoading]  = useState(false);
-  const { register } = useAuth();
+  const { register, loginWithGithub } = useAuth();
   const navigate     = useNavigate();
 
   const strength = password.length > 0 ? getStrength(password) : -1;
@@ -110,8 +110,8 @@ export default function Register() {
             transition={{ delay: 0.4 }}
             className="text-[#4a5568] text-base mb-10 leading-relaxed"
           >
-            Join 12,000+ developers who use CodeSync for real-time collaboration,
-            code execution, and team communication.
+            A full-stack internship project showcasing real-time collaboration,
+            Docker-sandboxed code execution, and production-grade auth.
           </motion.p>
 
           <div className="space-y-4">
@@ -136,15 +136,15 @@ export default function Register() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8 }}
-            className="grid grid-cols-3 gap-4 mt-12"
+            className="grid grid-cols-3 gap-3 mt-12"
           >
             {[
-              { val: '12K+', label: 'Developers' },
-              { val: '50K+', label: 'Projects' },
-              { val: '2M+', label: 'Executions' },
+              { val: 'Yjs',     label: 'CRDTs'      },
+              { val: 'Docker',  label: 'Sandboxed'  },
+              { val: 'Monaco',  label: 'Editor'     },
             ].map(({ val, label }) => (
               <div key={label} className="text-center p-4 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
-                <div className="text-xl font-extrabold gradient-text">{val}</div>
+                <div className="text-sm font-extrabold gradient-text">{val}</div>
                 <div className="text-[11px] text-[#2d3748] uppercase tracking-wider mt-1">{label}</div>
               </div>
             ))}
@@ -315,9 +315,10 @@ export default function Register() {
               <motion.button
                 key={label}
                 type="button"
-                whileHover={{ scale: 1.03 }}
+                onClick={label === 'GitHub' ? loginWithGithub : undefined}
+                whileHover={{ scale: 1.03, borderColor: 'rgba(255,255,255,0.15)' }}
                 whileTap={{ scale: 0.97 }}
-                className="flex items-center justify-center gap-2.5 py-3 rounded-xl bg-[#111827] border border-[rgba(255,255,255,0.07)] text-[#8892b0] hover:text-[#f0f4ff] text-sm font-medium transition-all hover:border-[rgba(255,255,255,0.15)]"
+                className="flex items-center justify-center gap-2.5 py-3 rounded-xl bg-[#111827] border border-[rgba(255,255,255,0.07)] text-[#8892b0] hover:text-[#f0f4ff] text-sm font-medium transition-all"
               >
                 {svg}
                 {label}

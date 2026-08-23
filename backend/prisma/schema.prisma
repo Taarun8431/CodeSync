@@ -11,7 +11,9 @@ model User {
   id                String    @id @default(uuid())
   email             String    @unique
   username          String    @unique
-  password          String
+  password          String?
+  authProvider      String    @default("local")
+  providerId        String?   @unique
   isEmailVerified   Boolean   @default(false)
   emailVerifyToken  String?
   emailVerifyExpiry DateTime?
@@ -23,6 +25,7 @@ model User {
   refreshTokens   RefreshToken[]
   workspaces      Workspace[]
   projectMembers  ProjectMember[]
+  sessionLogs     SessionLog[]
 
   @@map("users")
 }
@@ -122,4 +125,14 @@ model File {
   @@map("files")
 }
 
+model SessionLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String   // "LOGIN" or "LOGOUT"
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
 
+  @@map("session_logs")
+}

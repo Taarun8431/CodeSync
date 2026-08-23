@@ -29,6 +29,7 @@ CodeSync is a powerful, real-time collaborative IDE designed for teams. It featu
 - **Database**: PostgreSQL (via Prisma ORM)
 - **Real-Time Layer**: Native WebSockets (`ws`) with Yjs Persistence
 - **Authentication**: JWT (JSON Web Tokens) with HTTP-only cookies
+- **Identity Provider**: Direct GitHub OAuth Integration
 - **Validation**: express-validator
 
 ## 🏗 Architecture Overview
@@ -57,6 +58,7 @@ graph TD
 
     subgraph External ["External Services"]
         Piston["Piston Execution Engine"]
+        GitHub["GitHub OAuth API"]
     end
 
     UI -- "HTTP (VFS, Auth)" --> API
@@ -67,6 +69,7 @@ graph TD
     WS -- "Debounced Save" --> DB
     
     API -- "Run Code" --> Piston
+    API -- "OAuth Handshake" --> GitHub
 ```
 
 ## 🛠 Prerequisites
@@ -90,11 +93,29 @@ npm install
 ```
 Create a `.env` file in the `backend` directory:
 ```env
+# Server
+NODE_ENV=development
 PORT=5000
+
+# Database
 DATABASE_URL="postgresql://user:password@localhost:5432/codesync?schema=public"
-JWT_SECRET="your_super_secret_jwt_key"
+
+# JWT
+JWT_ACCESS_SECRET="your_access_token_secret"
+JWT_REFRESH_SECRET="your_refresh_token_secret"
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+
+# Bcrypt
+BCRYPT_SALT_ROUNDS=12
+
+# Client
 CLIENT_URL="http://localhost:5173"
-PISTON_URL="https://emkc.org/api/v2/piston"
+
+# GitHub OAuth
+GITHUB_CLIENT_ID="your_github_client_id_here"
+GITHUB_CLIENT_SECRET="your_github_client_secret_here"
+GITHUB_CALLBACK_URL="http://localhost:5000/api/auth/github/callback"
 ```
 Run Prisma migrations to initialize the database:
 ```bash
