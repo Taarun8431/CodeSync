@@ -1,9 +1,24 @@
 'use strict';
 
+const crypto = require('crypto');
 const authService = require('../services/auth.service');
 const asyncHandler = require('../../../utils/asyncHandler');
 const { sendSuccess } = require('../../../utils/apiResponse');
+const AppError = require('../../../utils/AppError');
 const config = require('../../../config/env');
+
+// ─── OAuth One-Time Exchange Code Store (60s TTL) ─────────────────────────────
+const oauthExchangeCodes = new Map();
+
+const cleanupTimer = setInterval(() => {
+  const now = Date.now();
+  for (const [code, data] of oauthExchangeCodes.entries()) {
+    if (data.expiresAt < now) {
+      oauthExchangeCodes.delete(code);
+    }
+  }
+}, 60000);
+if (cleanupTimer.unref) cleanupTimer.unref();
 
 // ─── Cookie helper ────────────────────────────────────────────────────────────
 const REFRESH_COOKIE = 'refreshToken';
@@ -12,7 +27,7 @@ const setRefreshCookie = (res, token) => {
   res.cookie(REFRESH_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: 'lax', // 'lax' preserves cookie across OAuth redirects
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
   });
 };
@@ -21,7 +36,7 @@ const clearRefreshCookie = (res) => {
   res.clearCookie(REFRESH_COOKIE, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: 'lax',
   });
 };
 
@@ -67,8 +82,47 @@ const githubCallback = asyncHandler(async (req, res) => {
   });
   
   setRefreshCookie(res, refreshToken);
+
+  // Harden OAuth handoff: Do NOT put raw JWT access token in the URL query string.
+  // Generate a cryptographically random, short-lived (60s), single-use exchange code.
+  const exchangeCode = crypto.randomBytes(32).toString('hex');
+  oauthExchangeCodes.set(exchangeCode, {
+    accessToken,
+    refreshToken,
+    user,
+    expiresAt: Date.now() + 60 * 1000,
+  });
   
-  res.redirect(`${config.clientUrl}/auth/callback?token=${accessToken}`);
+  res.redirect(`${config.clientUrl}/auth/callback?code=${exchangeCode}`);
+});
+
+const exchangeOAuthCode = asyncHandler(async (req, res) => {
+  const { code } = req.body;
+  if (!code) {
+    throw new AppError('Exchange code is required.', 400);
+  }
+
+  const session = oauthExchangeCodes.get(code);
+  if (!session) {
+    throw new AppError('Invalid or expired exchange code.', 401);
+  }
+
+  // Atomic single-use: invalidate code immediately to prevent replay attacks
+  oauthExchangeCodes.delete(code);
+
+  if (Date.now() > session.expiresAt) {
+    throw new AppError('Exchange code has expired.', 401);
+  }
+
+  setRefreshCookie(res, session.refreshToken);
+
+  sendSuccess(res, {
+    message: 'OAuth exchange successful.',
+    data: {
+      accessToken: session.accessToken,
+      user: session.user,
+    },
+  });
 });
 
 const refresh = asyncHandler(async (req, res) => {
@@ -115,6 +169,7 @@ module.exports = {
   login,
   githubRedirect,
   githubCallback,
+  exchangeOAuthCode,
   refresh,
   logout,
   verifyEmail,

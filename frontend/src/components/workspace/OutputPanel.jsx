@@ -71,7 +71,7 @@ export default function OutputPanel({
                       transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
                       className="w-4 h-4 border-2 border-[#3b82f6] border-t-transparent rounded-full"
                     />
-                    <span className="text-[#60a5fa]">Executing in secure container...</span>
+                    <span className="text-[#60a5fa]">Executing...</span>
                   </div>
                 ) : output ? (
                   <pre className={`whitespace-pre-wrap break-words ${

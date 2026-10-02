@@ -111,7 +111,7 @@ export default function Register() {
             className="text-[#4a5568] text-base mb-10 leading-relaxed"
           >
             A full-stack internship project showcasing real-time collaboration,
-            Docker-sandboxed code execution, and production-grade auth.
+            sandboxed JavaScript and Python execution, and production-grade auth.
           </motion.p>
 
           <div className="space-y-4">
@@ -139,9 +139,9 @@ export default function Register() {
             className="grid grid-cols-3 gap-3 mt-12"
           >
             {[
-              { val: 'Yjs',     label: 'CRDTs'      },
-              { val: 'Docker',  label: 'Sandboxed'  },
-              { val: 'Monaco',  label: 'Editor'     },
+              { val: 'Yjs',      label: 'CRDTs'      },
+              { val: 'Node/Py',  label: 'Engine'     },
+              { val: 'Monaco',   label: 'Editor'     },
             ].map(({ val, label }) => (
               <div key={label} className="text-center p-4 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
                 <div className="text-sm font-extrabold gradient-text">{val}</div>

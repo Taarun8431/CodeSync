@@ -30,7 +30,7 @@ console.log('🚀 Collaboration live!');`;
 
 const features = [
   { icon: Users,     text: 'Real-time multiplayer editing'  },
-  { icon: Server,    text: 'Isolated Docker execution'      },
+  { icon: Server,    text: 'Local code execution'           },
   { icon: GitBranch, text: 'Project workspaces & sharing'   },
 ];
 
@@ -149,7 +149,7 @@ export default function Login() {
           <p className="text-[11px] font-bold text-[#2d3748] uppercase tracking-widest mb-2">About this project</p>
           <p className="text-sm text-[#4a5568] leading-relaxed">
             CodeSync is a portfolio/internship project demonstrating full-stack engineering —
-            Yjs CRDTs, Docker execution, Monaco editor, JWT auth, and WebSocket collaboration.
+            Yjs CRDTs, local code execution, Monaco editor, JWT auth, and WebSocket collaboration.
           </p>
         </div>
       </motion.div>

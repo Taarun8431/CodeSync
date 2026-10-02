@@ -26,8 +26,8 @@ const features = [
   },
   {
     icon: Server,
-    title: 'Isolated Execution',
-    desc: 'Every run spins up an ephemeral Docker container. Fully sandboxed, instant, and secure — supporting 10+ languages.',
+    title: 'Local Code Execution',
+    desc: 'JavaScript and Python execution with execution timeouts, isolated temporary files, and safety controls.',
     accent: '#22c55e',
     glow: 'rgba(34,197,94,0.2)',
     tag: 'Execution Engine',
@@ -69,7 +69,7 @@ const features = [
 /* Real tech stack used in this project */
 const techStack = [
   { label: 'Yjs CRDTs',       desc: 'Conflict-free real-time sync',      color: '#3b82f6', icon: Users },
-  { label: 'Docker Sandbox',  desc: 'Ephemeral container execution',      color: '#22c55e', icon: Terminal },
+  { label: 'Code Execution',  desc: 'JS & Python with timeouts',          color: '#22c55e', icon: Terminal },
   { label: 'Monaco Editor',   desc: 'VS Code engine in the browser',      color: '#8b5cf6', icon: Code2 },
   { label: 'JWT + Refresh',   desc: 'Stateless auth with token rotation', color: '#f59e0b', icon: Shield },
   { label: 'WebSocket / Y-WS',desc: 'Persistent collaborative sessions',  color: '#ec4899', icon: GitBranch },
@@ -152,7 +152,7 @@ export default function Home({ theme, toggleTheme }) {
                 transition={{ duration: 0.6, delay: 0.2 }}
                 className="text-lg md:text-xl text-[#8892b0] max-w-xl mb-10 leading-relaxed"
               >
-                A multiplayer IDE with real-time collaboration, isolated Docker execution,
+                A multiplayer IDE with real-time collaboration, local code execution,
                 Monaco editor, and team chat — all in one browser tab.
               </motion.p>
 
@@ -483,7 +483,7 @@ export default function Home({ theme, toggleTheme }) {
             <span className="gradient-text">together</span>
           </h2>
           <p className="text-[#8892b0] text-lg mb-10 leading-relaxed">
-            CodeSync is a full-stack collaborative IDE built with Yjs, Docker, Monaco Editor,
+            CodeSync is a full-stack collaborative IDE built with Yjs, Monaco Editor,
             and WebSockets — designed to demonstrate real-world engineering.
           </p>
 

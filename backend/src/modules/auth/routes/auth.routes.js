@@ -28,6 +28,9 @@ router.get('/github', authLimiter, authController.githubRedirect);
 // GET /api/auth/github/callback
 router.get('/github/callback', authLimiter, authController.githubCallback);
 
+// POST /api/auth/oauth/exchange (Secure single-use authorization code exchange)
+router.post('/oauth/exchange', authLimiter, authController.exchangeOAuthCode);
+
 // POST /api/auth/refresh
 router.post('/refresh', authLimiter, authController.refresh);
 

@@ -22,6 +22,19 @@ import ChatPanel    from '../components/workspace/ChatPanel';
 /* ─── WS base URL — env var for production ─── */
 const WS_BASE = import.meta.env.VITE_WS_URL || 'ws://localhost:5000/api/v1/collaboration';
 
+// ─── Deterministic user color from username
+const USER_COLORS = [
+  '#3b82f6', '#8b5cf6', '#ec4899', '#22c55e',
+  '#f59e0b', '#06b6d4', '#ef4444', '#a855f7',
+  '#14b8a6', '#f97316',
+];
+
+const getUserColor = (username = '') => {
+  let hash = 0;
+  for (const ch of username) hash = (hash + ch.charCodeAt(0)) % USER_COLORS.length;
+  return USER_COLORS[hash];
+};
+
 export default function Workspace() {
   const { projectId } = useParams();
   const { token, user, logout } = useAuth();
@@ -103,7 +116,7 @@ export default function Workspace() {
   useEffect(() => {
     const doc = new Y.Doc();
     const provider = new WebsocketProvider(
-      WS_BASE, `project-${projectId}-chat`, doc, { params: { token } }
+      WS_BASE, `project-chat:${projectId}`, doc, { params: { token } }
     );
 
     const ychat = doc.getArray('chat');
@@ -147,7 +160,7 @@ export default function Workspace() {
 
     const doc = new Y.Doc();
     providerRef.current = new WebsocketProvider(
-      WS_BASE, `${fileId}`, doc, { params: { token } }
+      WS_BASE, `file:${fileId}`, doc, { params: { token } }
     );
 
     const type = doc.getText('monaco');
@@ -156,6 +169,14 @@ export default function Workspace() {
       new Set([editorRef.current]),
       providerRef.current.awareness
     );
+
+    // ─── Cursor Awareness Setup
+    if (user) {
+      providerRef.current.awareness.setLocalStateField('user', {
+        name: user.username,
+        color: getUserColor(user.username),
+      });
+    }
 
     const yNotif = doc.getMap('notifications');
     yNotif.observe(e => {
@@ -275,7 +296,7 @@ export default function Workspace() {
     setBottomOpen(true);
     setBottomTab('output');
     setExecuting(true);
-    setOutput('Executing in secure container...\n');
+    setOutput('Executing...\n');
     try {
       const res = await api.post(`/projects/${projectId}/execute`, {
         code: editorRef.current.getValue(),
@@ -350,7 +371,7 @@ export default function Workspace() {
             onChange={e => setLanguage(e.target.value)}
             className="bg-[#111827] border border-[rgba(255,255,255,0.08)] text-xs font-medium text-[#8892b0] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#3b82f6]/50 cursor-pointer hover:border-[rgba(255,255,255,0.15)] transition-colors"
           >
-            {['javascript','python','cpp','java','go'].map(l => (
+            {['javascript','python'].map(l => (
               <option key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</option>
             ))}
           </select>

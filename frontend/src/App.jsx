@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Workspace from './pages/Workspace';
+import AuthCallback from './pages/AuthCallback';
 import PageTransition from './components/layout/PageTransition';
 
 /* ─── Protected Route ─── */
@@ -47,6 +48,10 @@ function AnimatedRoutes({ theme, toggleTheme }) {
               <Register />
             </PageTransition>
           }
+        />
+        <Route
+          path="/auth/callback"
+          element={<AuthCallback />}
         />
         <Route
           path="/dashboard"
