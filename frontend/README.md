@@ -1,16 +1,80 @@
-# React + Vite
+# CodeSync — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Modern, high-performance client interface for **CodeSync**, a real-time collaborative development environment. Built with React 19, Vite, TailwindCSS, Monaco Editor, Framer Motion, and Yjs CRDT synchronization.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🛠 Tech Stack
 
-## React Compiler
+- **Framework**: [React 19](https://react.dev/) + [Vite](https://vitejs.dev/)
+- **Editor**: [@monaco-editor/react](https://github.com/suren-atoyan/monaco-react) (VS Code browser engine)
+- **Real-Time Collaboration**: [Yjs](https://yjs.dev/) + [y-websocket](https://github.com/yjs/y-websocket) + [y-monaco](https://github.com/yjs/y-monaco)
+- **Styling**: [TailwindCSS 3](https://tailwindcss.com/) + Custom Glassmorphism UI
+- **Animations**: [Framer Motion](https://www.framer.com/motion/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **Routing**: [React Router DOM v7](https://reactrouter.com/)
+- **HTTP Client**: [Axios](https://axios-http.com/) with automatic token refresh interceptor & failed queue replay
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the Oxlint configuration
+## 📂 Project Structure
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+```text
+src/
+├── assets/          # Static branding, hero images, and vectors
+├── components/
+│   ├── layout/      # Navbar, PageTransition wrappers
+│   ├── ui/          # Reusable design tokens (Button, Input, Modal, Badge, Spinner)
+│   └── workspace/   # IDE panels (EditorTabs, FileExplorer, OutputPanel, ChatPanel)
+├── contexts/        # AuthContext (JWT management, silent refresh, OAuth handoff)
+├── pages/
+│   ├── Home.jsx         # Landing page highlighting features & local execution
+│   ├── Login.jsx        # User login with GitHub OAuth option
+│   ├── Register.jsx     # Registration with email verification flow
+│   ├── Dashboard.jsx    # Workspaces and project management
+│   ├── Workspace.jsx    # The core collaborative IDE interface
+│   └── AuthCallback.jsx # Secure single-use OAuth code exchange handoff
+└── utils/
+    └── api.js       # Configured Axios instance with refresh interceptor
+```
+
+---
+
+## ⚡ Getting Started
+
+### 1. Install Dependencies
+```bash
+npm install
+```
+
+### 2. Configure Environment Variables
+Copy `.env.example` to `.env`:
+```bash
+cp .env.example .env
+```
+Default configuration:
+```env
+VITE_API_URL=http://localhost:5000/api/v1
+VITE_WS_URL=ws://localhost:5000/api/v1/collaboration
+```
+
+### 3. Run Development Server
+```bash
+npm run dev
+```
+Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+### 4. Build for Production
+```bash
+npm run build
+```
+Creates an optimized production bundle in `dist/`.
+
+---
+
+## 🔒 Security & Collaboration Features
+
+- **No JWT in URLs**: GitHub OAuth utilizes a temporary one-time authorization code exchange processed via `AuthCallback.jsx` and `POST /api/v1/auth/oauth/exchange`.
+- **Silent Refresh**: Refresh token stored in secure `httpOnly` cookie; access token maintained in memory.
+- **Role-Based Workspace**: Monaco editor automatically locks to `readOnly` mode when viewing projects with `VIEWER` access.
+- **Awareness & Presence**: Real-time cursor coordinates and user indicators broadcasted through Yjs awareness protocol.

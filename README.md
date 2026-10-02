@@ -19,16 +19,17 @@ The application provides authentication, workspaces, projects, a PostgreSQL-back
 - **Real-time collaborative editing** using Yjs, `y-websocket`, native WebSockets, and Monaco Editor.
 - **CRDT-based synchronization** through Yjs. CodeSync does not implement classic Operational Transformation (OT).
 - **Virtual File System (VFS)** with projects, folders, nested folders, files, file content, and language metadata stored in PostgreSQL.
-- **Project collaboration** with `OWNER`, `EDITOR`, and `VIEWER` roles.
-- **Project chat** synchronized through a Yjs project document and persisted to PostgreSQL.
-- **Authentication** with local email/password authentication, JWT access tokens, refresh tokens, and GitHub OAuth.
-- **Secure refresh-token cookie** using HTTP-only, Secure-in-production, SameSite=Strict cookie settings.
+- **Composite IDOR Protection**: Scoped database queries (`where: { id, projectId }`) prevent cross-project manipulation across all file and folder operations.
+- **Project collaboration & RBAC**: Strict positive whitelisting ensures only `OWNER` and `EDITOR` roles can mutate files, while `VIEWER` and `PUBLIC_VIEWER` are strictly read-only.
+- **WebSocket Resource Authorization**: Handshake-level authorization validates project membership, ownership, and role permissions before allowing Yjs CRDT synchronization.
+- **Project chat** synchronized through a Yjs project document (`project-chat:<projectId>`) and persisted to PostgreSQL.
+- **Hardened Authentication**: Local email/password auth, JWT access tokens, rotating refresh tokens, and hardened GitHub OAuth using RFC 6749 single-use authorization code exchange (`POST /api/v1/auth/oauth/exchange`) to avoid exposing tokens in URL query strings.
+- **Secure refresh-token cookie** using HTTP-only, Secure-in-production, SameSite=Lax cookie settings.
 - **Email workflows** for email verification and password reset.
 - **REST API** for authentication, users, workspaces, projects, VFS operations, execution, and health checks.
 - **Request protection** with Helmet, CORS, rate limiting, validation, and structured error handling.
 - **WebSocket connection throttling** with a per-IP connection-attempt limit.
-- **Swagger/OpenAPI support** through `swagger-jsdoc` and `swagger-ui-express`.
-- **Developer tooling** with ESLint, Prettier, Husky, lint-staged, Prisma migrations, and Prisma Studio.
+- **Developer tooling** with automated Jest tests, ESLint, Prettier, Husky, lint-staged, Prisma migrations, and Prisma Studio.
 
 ---
 
@@ -131,8 +132,9 @@ Other Monaco Editors
 
 For persistence, the server maps collaborative documents to database records:
 
-- A file collaboration document uses the file ID as the document name.
-- A project collaboration document uses the `project-<projectId>` convention for project chat.
+- A file collaboration document uses the standardized `file:<fileId>` convention.
+- A project collaboration document uses the standardized `project-chat:<projectId>` convention for project chat.
+- Resource-level authorization verifies that the connecting user has `OWNER`, `EDITOR`, or `VIEWER` permission on the document before allowing the WebSocket upgrade.
 - Existing PostgreSQL state is loaded into the Yjs document when the document is initialized.
 - Yjs state is written back to PostgreSQL through persistence callbacks.
 - An additional two-minute autosave loop persists active documents.

@@ -1,26 +1,33 @@
+# Dependencies
 node_modules/
 dist/
-.env
-*.log
-.DS_Store
-coverage/
 
-# Logs
-logs
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+*.env
+
+# Operating System & Logs
+.DS_Store
+Thumbs.db
 *.log
+logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
+coverage/
 
-# Runtime data
-pids
+# Runtime data & Execution artifacts
+pids/
 *.pid
 *.seed
 *.pid.lock
-
-# Test Scripts & Execution Environment
-backend/scripts/
-backend/test-api*.js
 backend/temp_executions/
+backend/test-api*.js
+backend/scripts/
+
+# Agent / Tooling local caches
+.agents/
+skills-lock.json
