@@ -27,7 +27,10 @@ jest.mock('../src/lib/prisma', () => ({
 }));
 
 const prisma = require('../src/lib/prisma');
-const { authorizeDocumentAccess } = require('../src/socket');
+const { authorizeDocumentAccess, enforceReadOnlySocket } = require('../src/socket');
+const encoding = require('lib0/dist/encoding.cjs');
+const syncProtocol = require('y-protocols/dist/sync.cjs');
+const EventEmitter = require('events');
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -154,6 +157,97 @@ describe('WebSocket Resource Authorization (authorizeDocumentAccess)', () => {
       await expect(
         authorizeDocumentAccess('user-1', { type: 'file', fileId: 'missing-file' })
       ).rejects.toMatchObject({ statusCode: 404 });
+    });
+  });
+
+  describe('Read-Only WebSocket Mutation Blocking (enforceReadOnlySocket)', () => {
+    let mockWs;
+    let receivedEvents;
+
+    beforeEach(() => {
+      receivedEvents = [];
+      mockWs = new EventEmitter();
+      mockWs.send = jest.fn();
+      mockWs.readyState = 1; // OPEN
+    });
+
+    it('should block messageYjsUpdate from read-only VIEWER clients', () => {
+      enforceReadOnlySocket(mockWs, 'file:file-1', { username: 'viewerUser' }, { role: 'VIEWER', isReadOnly: true });
+
+      mockWs.on('message', (msg) => {
+        receivedEvents.push(msg);
+      });
+
+      // Construct a messageSync (0) + messageYjsUpdate (2)
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 0); // messageSync
+      syncProtocol.writeUpdate(encoder, new Uint8Array([42, 43, 44]));
+      const updateMsg = encoding.toUint8Array(encoder);
+
+      // Trigger message
+      mockWs.emit('message', updateMsg);
+
+      // Listener must NEVER receive the update
+      expect(receivedEvents).toHaveLength(0);
+    });
+
+    it('should block messageYjsSyncStep2 mutations from read-only VIEWER clients', () => {
+      enforceReadOnlySocket(mockWs, 'file:file-1', { username: 'viewerUser' }, { role: 'VIEWER', isReadOnly: true });
+
+      mockWs.on('message', (msg) => {
+        receivedEvents.push(msg);
+      });
+
+      // Construct a messageSync (0) + messageYjsSyncStep2 (1)
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 0); // messageSync
+      encoding.writeVarUint(encoder, 1); // syncStep2
+      encoding.writeVarUint8Array(encoder, new Uint8Array([1, 2, 3]));
+      const syncStep2Msg = encoding.toUint8Array(encoder);
+
+      mockWs.emit('message', syncStep2Msg);
+
+      // Must be dropped
+      expect(receivedEvents).toHaveLength(0);
+    });
+
+    it('should allow messageYjsSyncStep1 through so read-only clients can receive document state', () => {
+      enforceReadOnlySocket(mockWs, 'file:file-1', { username: 'viewerUser' }, { role: 'VIEWER', isReadOnly: true });
+
+      mockWs.on('message', (msg) => {
+        receivedEvents.push(msg);
+      });
+
+      // Construct a messageSync (0) + messageYjsSyncStep1 (0)
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 0); // messageSync
+      encoding.writeVarUint(encoder, 0); // syncStep1
+      encoding.writeVarUint8Array(encoder, new Uint8Array([0]));
+      const syncStep1Msg = encoding.toUint8Array(encoder);
+
+      mockWs.emit('message', syncStep1Msg);
+
+      // Must be delivered so server can respond with document state
+      expect(receivedEvents).toHaveLength(1);
+    });
+
+    it('should allow messageAwareness through for presence and viewing state', () => {
+      enforceReadOnlySocket(mockWs, 'file:file-1', { username: 'viewerUser' }, { role: 'VIEWER', isReadOnly: true });
+
+      mockWs.on('message', (msg) => {
+        receivedEvents.push(msg);
+      });
+
+      // Construct a messageAwareness (1)
+      const encoder = encoding.createEncoder();
+      encoding.writeVarUint(encoder, 1); // messageAwareness
+      encoding.writeVarUint8Array(encoder, new Uint8Array([99]));
+      const awarenessMsg = encoding.toUint8Array(encoder);
+
+      mockWs.emit('message', awarenessMsg);
+
+      // Must be delivered
+      expect(receivedEvents).toHaveLength(1);
     });
   });
 });

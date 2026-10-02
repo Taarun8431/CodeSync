@@ -33,6 +33,9 @@
 
 const { WebSocketServer } = require('ws');
 const { setupWSConnection, setPersistence, docs } = require('y-websocket/bin/utils');
+const decoding = require('lib0/dist/decoding.cjs');
+const encoding = require('lib0/dist/encoding.cjs');
+const syncProtocol = require('y-protocols/dist/sync.cjs');
 const { verifyAccessToken } = require('./utils/jwt');
 const { parseDocName } = require('./utils/docName');
 const prisma = require('./lib/prisma');
@@ -338,8 +341,14 @@ const setupSockets = (server) => {
     const docName = req.docName || decodeURIComponent(url.pathname.split('/').pop());
     const user = req.user;
     const authInfo = req.authInfo;
+    const isReadOnly = Boolean(authInfo?.isReadOnly);
 
-    console.log(`[WebSocket] ${user?.username} (${authInfo?.role || 'VIEWER'}) connected to: ${docName}`);
+    console.log(`[WebSocket] ${user?.username} (${authInfo?.role || 'VIEWER'}) connected to: ${docName} [readOnly=${isReadOnly}]`);
+
+    // Enforce read-only restriction: block mutations if client is VIEWER or PUBLIC_VIEWER
+    if (isReadOnly) {
+      enforceReadOnlySocket(ws, docName, user, authInfo);
+    }
 
     // Setup Yjs CRDT sync over this WebSocket connection
     setupWSConnection(ws, req, { docName });
@@ -352,5 +361,61 @@ const setupSockets = (server) => {
   return wss;
 };
 
+/**
+ * Enforces read-only permissions on a WebSocket connection for VIEWER and PUBLIC_VIEWER clients.
+ * Allows:
+ *   - messageSync -> messageYjsSyncStep1 (asking server for state)
+ *   - messageAwareness (presence, viewing cursor)
+ * Blocks:
+ *   - messageSync -> messageYjsSyncStep2 (unauthorized client state push)
+ *   - messageSync -> messageYjsUpdate    (unauthorized document edit)
+ *
+ * When an unauthorized edit is blocked, it responds with SyncStep1 to force
+ * the client to roll back optimistic local mutations to authoritative server state.
+ */
+const enforceReadOnlySocket = (ws, docName, user, authInfo) => {
+  const originalEmit = ws.emit.bind(ws);
+  ws.emit = function (event, ...args) {
+    if (event === 'message') {
+      const raw = args[0];
+      try {
+        const buf = raw instanceof ArrayBuffer
+          ? new Uint8Array(raw)
+          : Buffer.isBuffer(raw)
+            ? new Uint8Array(raw)
+            : new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength);
+
+        const decoder = decoding.createDecoder(buf);
+        const messageType = decoding.readVarUint(decoder);
+
+        if (messageType === 0) { // messageSync
+          const syncType = decoding.readVarUint(decoder);
+          // syncType 0 = messageYjsSyncStep1 (read-only request for server state)
+          // syncType 1 = messageYjsSyncStep2 (mutation payload from client during sync)
+          // syncType 2 = messageYjsUpdate    (mutation payload from client during editing)
+          if (syncType !== 0) {
+            console.warn(`[WebSocket] Blocked unauthorized edit from read-only user ${user?.username || 'anonymous'} (${authInfo?.role || 'VIEWER'}) on ${docName}`);
+
+            // Force client rollback to authoritative server state
+            const ydoc = docs.get(docName);
+            if (ydoc && ws.readyState === 1) { // 1 = OPEN
+              const encoder = encoding.createEncoder();
+              encoding.writeVarUint(encoder, 0); // messageSync
+              syncProtocol.writeSyncStep1(encoder, ydoc);
+              ws.send(encoding.toUint8Array(encoder));
+            }
+            return false;
+          }
+        }
+      } catch (err) {
+        // If decoding fails, pass through or let handler handle
+      }
+    }
+    return originalEmit(event, ...args);
+  };
+  return ws;
+};
+
 module.exports = setupSockets;
 module.exports.authorizeDocumentAccess = authorizeDocumentAccess;
+module.exports.enforceReadOnlySocket = enforceReadOnlySocket;

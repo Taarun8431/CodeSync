@@ -189,9 +189,23 @@ const executeCode = asyncHandler(async (req, res) => {
   }
 
   // 3. Execute via the selected engine
-  const result = USE_PISTON
-    ? await executeWithPiston(contentToRun, language)
-    : await executeLocally(contentToRun, language);
+  const usePiston = process.env.USE_PISTON === 'true';
+  let result;
+
+  if (usePiston) {
+    try {
+      result = await executeWithPiston(contentToRun, language);
+    } catch (pistonErr) {
+      if (['javascript', 'python'].includes(language?.toLowerCase())) {
+        console.warn(`[Execution] Piston API failed (${pistonErr.message}), gracefully falling back to local runner`);
+        result = await executeLocally(contentToRun, language);
+      } else {
+        throw pistonErr;
+      }
+    }
+  } else {
+    result = await executeLocally(contentToRun, language);
+  }
 
   sendSuccess(res, {
     message: result.run.code === 0 ? 'Code executed successfully' : 'Code executed with errors',
