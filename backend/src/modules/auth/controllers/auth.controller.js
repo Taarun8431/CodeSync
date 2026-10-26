@@ -57,7 +57,7 @@ const login = asyncHandler(async (req, res) => {
   const { accessToken, refreshToken, user } = await authService.login({
     ...req.body,
     ipAddress,
-    userAgent
+    userAgent,
   });
   setRefreshCookie(res, refreshToken);
   sendSuccess(res, {
@@ -75,12 +75,12 @@ const githubCallback = asyncHandler(async (req, res) => {
   const { code } = req.query;
   const ipAddress = req.ip || req.connection?.remoteAddress;
   const userAgent = req.headers['user-agent'];
-  
+
   const { accessToken, refreshToken, user } = await authService.handleGithubCallback(code, {
     ipAddress,
-    userAgent
+    userAgent,
   });
-  
+
   setRefreshCookie(res, refreshToken);
 
   // Harden OAuth handoff: Do NOT put raw JWT access token in the URL query string.
@@ -92,7 +92,7 @@ const githubCallback = asyncHandler(async (req, res) => {
     user,
     expiresAt: Date.now() + 60 * 1000,
   });
-  
+
   res.redirect(`${config.clientUrl}/auth/callback?code=${exchangeCode}`);
 });
 

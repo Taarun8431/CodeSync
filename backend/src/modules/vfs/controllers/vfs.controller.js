@@ -12,7 +12,12 @@ const createFolder = asyncHandler(async (req, res) => {
 });
 
 const renameFolder = asyncHandler(async (req, res) => {
-  const folder = await vfsService.renameFolder(req.user.id, req.params.projectId, req.params.folderId, req.body.name);
+  const folder = await vfsService.renameFolder(
+    req.user.id,
+    req.params.projectId,
+    req.params.folderId,
+    req.body.name,
+  );
   sendSuccess(res, { message: 'Folder renamed', data: { folder } });
 });
 
@@ -29,12 +34,22 @@ const createFile = asyncHandler(async (req, res) => {
 });
 
 const renameFile = asyncHandler(async (req, res) => {
-  const file = await vfsService.renameFile(req.user.id, req.params.projectId, req.params.fileId, req.body.name);
+  const file = await vfsService.renameFile(
+    req.user.id,
+    req.params.projectId,
+    req.params.fileId,
+    req.body.name,
+  );
   sendSuccess(res, { message: 'File renamed', data: { file } });
 });
 
 const updateFileContent = asyncHandler(async (req, res) => {
-  const file = await vfsService.updateFileContent(req.user.id, req.params.projectId, req.params.fileId, req.body.content);
+  const file = await vfsService.updateFileContent(
+    req.user.id,
+    req.params.projectId,
+    req.params.fileId,
+    req.body.content,
+  );
   sendSuccess(res, { message: 'File saved', data: { file } });
 });
 
@@ -51,7 +66,11 @@ const getProjectTree = asyncHandler(async (req, res) => {
 });
 
 const getFileContent = asyncHandler(async (req, res) => {
-  const file = await vfsService.getFileContent(req.user.id, req.params.projectId, req.params.fileId);
+  const file = await vfsService.getFileContent(
+    req.user.id,
+    req.params.projectId,
+    req.params.fileId,
+  );
   sendSuccess(res, { data: { file } });
 });
 

@@ -172,13 +172,13 @@ const handleGithubCallback = async (code, { ipAddress, userAgent }) => {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Accept': 'application/json'
+      Accept: 'application/json',
     },
     body: JSON.stringify({
       client_id: config.github.clientId,
       client_secret: config.github.clientSecret,
       code,
-    })
+    }),
   });
   const tokenData = await tokenResponse.json();
   if (tokenData.error) {
@@ -189,7 +189,7 @@ const handleGithubCallback = async (code, { ipAddress, userAgent }) => {
 
   // 2. Fetch user profile
   const userResponse = await fetch('https://api.github.com/user', {
-    headers: { Authorization: `Bearer ${access_token}` }
+    headers: { Authorization: `Bearer ${access_token}` },
   });
   const userProfile = await userResponse.json();
   if (!userProfile || !userProfile.id) {
@@ -200,10 +200,10 @@ const handleGithubCallback = async (code, { ipAddress, userAgent }) => {
   let email = userProfile.email;
   if (!email) {
     const emailResponse = await fetch('https://api.github.com/user/emails', {
-      headers: { Authorization: `Bearer ${access_token}` }
+      headers: { Authorization: `Bearer ${access_token}` },
     });
     const emails = await emailResponse.json();
-    const primaryEmail = emails.find(e => e.primary && e.verified);
+    const primaryEmail = emails.find((e) => e.primary && e.verified);
     if (!primaryEmail) {
       throw new AppError('A verified primary email is required on your GitHub account.', 400);
     }
@@ -216,11 +216,8 @@ const handleGithubCallback = async (code, { ipAddress, userAgent }) => {
   // 4. Find or create user
   let user = await prisma.user.findFirst({
     where: {
-      OR: [
-        { providerId },
-        { email }
-      ]
-    }
+      OR: [{ providerId }, { email }],
+    },
   });
 
   if (!user) {
@@ -231,13 +228,13 @@ const handleGithubCallback = async (code, { ipAddress, userAgent }) => {
         username, // GitHub logins are unique, but might conflict locally. Prisma will throw if conflict, edge case.
         authProvider: 'github',
         providerId,
-        isEmailVerified: true
-      }
+        isEmailVerified: true,
+      },
     });
   } else if (!user.providerId) {
     user = await prisma.user.update({
       where: { id: user.id },
-      data: { providerId, authProvider: 'github', isEmailVerified: true }
+      data: { providerId, authProvider: 'github', isEmailVerified: true },
     });
   }
 
@@ -249,8 +246,8 @@ const handleGithubCallback = async (code, { ipAddress, userAgent }) => {
       userId: user.id,
       action: 'LOGIN',
       ipAddress,
-      userAgent
-    }
+      userAgent,
+    },
   });
 
   return { accessToken, refreshToken, user };

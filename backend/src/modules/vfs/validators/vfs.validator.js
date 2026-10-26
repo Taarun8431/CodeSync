@@ -10,11 +10,8 @@ const createFolderValidator = [
     .matches(/^[^\\/?%*:|"<>]+$/)
     .withMessage('Folder name contains invalid characters.')
     .isLength({ max: 255 }),
-  
-  body('parentId')
-    .optional({ nullable: true })
-    .isUUID()
-    .withMessage('Invalid Parent Folder ID.'),
+
+  body('parentId').optional({ nullable: true }).isUUID().withMessage('Invalid Parent Folder ID.'),
 ];
 
 const createFileValidator = [
@@ -25,19 +22,12 @@ const createFileValidator = [
     .matches(/^[^\\/?%*:|"<>]+$/)
     .withMessage('File name contains invalid characters.')
     .isLength({ max: 255 }),
-  
-  body('folderId')
-    .optional({ nullable: true })
-    .isUUID()
-    .withMessage('Invalid Folder ID.'),
-    
-  body('language')
-    .optional()
-    .isString(),
-    
-  body('content')
-    .optional()
-    .isString(),
+
+  body('folderId').optional({ nullable: true }).isUUID().withMessage('Invalid Folder ID.'),
+
+  body('language').optional().isString(),
+
+  body('content').optional().isString(),
 ];
 
 const renameValidator = [

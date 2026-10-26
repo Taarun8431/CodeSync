@@ -42,9 +42,16 @@ const prisma = require('./lib/prisma');
 
 // ─── Deterministic user color from username ───────────────────────────────────
 const USER_COLORS = [
-  '#3b82f6', '#8b5cf6', '#ec4899', '#22c55e',
-  '#f59e0b', '#06b6d4', '#ef4444', '#a855f7',
-  '#14b8a6', '#f97316',
+  '#3b82f6',
+  '#8b5cf6',
+  '#ec4899',
+  '#22c55e',
+  '#f59e0b',
+  '#06b6d4',
+  '#ef4444',
+  '#a855f7',
+  '#14b8a6',
+  '#f97316',
 ];
 
 const getUserColor = (username = '') => {
@@ -158,6 +165,71 @@ const autoSaveTimer = setInterval(() => {
 }, 120000);
 if (autoSaveTimer.unref) autoSaveTimer.unref();
 
+// ─── Emergency / Graceful Flush ──────────────────────────────────────────────
+/**
+ * Flushes all active in-memory Yjs documents directly to PostgreSQL.
+ * Triggered on crashes (uncaughtException, unhandledRejection) or termination signals (SIGTERM, SIGINT).
+ * Includes a timeout safeguard so the process does not hang if the DB connection is stalled.
+ *
+ * @param {number} timeoutMs - Maximum time to wait for DB updates (default 5000ms)
+ * @returns {Promise<{total: number, saved: number, failed: number, timedOut?: boolean}>}
+ */
+const flushAllDocumentsToDb = async (timeoutMs = 5000) => {
+  if (!docs || docs.size === 0) {
+    return { total: 0, saved: 0, failed: 0 };
+  }
+
+  const savePromises = [];
+
+  for (const [docName, ydoc] of docs.entries()) {
+    try {
+      const parsed = parseDocName(docName);
+      if (parsed.type === 'file' && parsed.fileId) {
+        const content = ydoc.getText('monaco').toString();
+        const savePromise = prisma.file
+          .update({
+            where: { id: parsed.fileId },
+            data: { content },
+          })
+          .catch((err) => {
+            console.error(`[EmergencyFlush] Failed to save ${docName}:`, err.message);
+            throw err;
+          });
+        savePromises.push(savePromise);
+      }
+    } catch (err) {
+      console.error(`[EmergencyFlush] Error inspecting ${docName}:`, err.message);
+    }
+  }
+
+  if (savePromises.length === 0) {
+    return { total: 0, saved: 0, failed: 0 };
+  }
+
+  const timeoutPromise = new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      console.warn(`[EmergencyFlush] DB flush timed out after ${timeoutMs}ms.`);
+      resolve('TIMEOUT');
+    }, timeoutMs);
+    if (timer.unref) timer.unref();
+  });
+
+  const flushRace = Promise.allSettled(savePromises);
+  const raceResult = await Promise.race([flushRace, timeoutPromise]);
+
+  if (raceResult === 'TIMEOUT') {
+    return { total: savePromises.length, saved: 0, failed: savePromises.length, timedOut: true };
+  }
+
+  const saved = raceResult.filter((r) => r.status === 'fulfilled').length;
+  const failed = raceResult.filter((r) => r.status === 'rejected').length;
+
+  console.log(
+    `[EmergencyFlush] Successfully flushed ${saved}/${savePromises.length} document(s) to DB.`,
+  );
+  return { total: savePromises.length, saved, failed };
+};
+
 // ─── Database Persistence Hook ────────────────────────────────────────────────
 setPersistence({
   /**
@@ -182,11 +254,14 @@ setPersistence({
         const chatArray = ydoc.getArray('chat');
         if (chatArray.length === 0 && messages.length > 0) {
           // Hydrate the Y.Array with DB messages
-          chatArray.insert(0, messages.map((m) => ({
-            user:      m.username,
-            text:      m.text,
-            timestamp: m.timestamp.getTime(),
-          })));
+          chatArray.insert(
+            0,
+            messages.map((m) => ({
+              user: m.username,
+              text: m.text,
+              timestamp: m.timestamp.getTime(),
+            })),
+          );
         }
 
         // Observe new chat messages pushed by clients and persist each one to DB
@@ -200,8 +275,8 @@ setPersistence({
                   await prisma.chatMessage.create({
                     data: {
                       projectId,
-                      username:  msg.user || 'Unknown',
-                      text:      msg.text || '',
+                      username: msg.user || 'Unknown',
+                      text: msg.text || '',
                       timestamp: msg.timestamp ? new Date(msg.timestamp) : new Date(),
                     },
                   });
@@ -212,7 +287,6 @@ setPersistence({
             }
           });
         }
-
       } else if (parsed.type === 'file') {
         const fileId = parsed.fileId;
         console.log(`[Yjs] Loading initial state for file: ${fileId}`);
@@ -343,7 +417,9 @@ const setupSockets = (server) => {
     const authInfo = req.authInfo;
     const isReadOnly = Boolean(authInfo?.isReadOnly);
 
-    console.log(`[WebSocket] ${user?.username} (${authInfo?.role || 'VIEWER'}) connected to: ${docName} [readOnly=${isReadOnly}]`);
+    console.log(
+      `[WebSocket] ${user?.username} (${authInfo?.role || 'VIEWER'}) connected to: ${docName} [readOnly=${isReadOnly}]`,
+    );
 
     // Enforce read-only restriction: block mutations if client is VIEWER or PUBLIC_VIEWER
     if (isReadOnly) {
@@ -379,26 +455,31 @@ const enforceReadOnlySocket = (ws, docName, user, authInfo) => {
     if (event === 'message') {
       const raw = args[0];
       try {
-        const buf = raw instanceof ArrayBuffer
-          ? new Uint8Array(raw)
-          : Buffer.isBuffer(raw)
+        const buf =
+          raw instanceof ArrayBuffer
             ? new Uint8Array(raw)
-            : new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength);
+            : Buffer.isBuffer(raw)
+              ? new Uint8Array(raw)
+              : new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength);
 
         const decoder = decoding.createDecoder(buf);
         const messageType = decoding.readVarUint(decoder);
 
-        if (messageType === 0) { // messageSync
+        if (messageType === 0) {
+          // messageSync
           const syncType = decoding.readVarUint(decoder);
           // syncType 0 = messageYjsSyncStep1 (read-only request for server state)
           // syncType 1 = messageYjsSyncStep2 (mutation payload from client during sync)
           // syncType 2 = messageYjsUpdate    (mutation payload from client during editing)
           if (syncType !== 0) {
-            console.warn(`[WebSocket] Blocked unauthorized edit from read-only user ${user?.username || 'anonymous'} (${authInfo?.role || 'VIEWER'}) on ${docName}`);
+            console.warn(
+              `[WebSocket] Blocked unauthorized edit from read-only user ${user?.username || 'anonymous'} (${authInfo?.role || 'VIEWER'}) on ${docName}`,
+            );
 
             // Force client rollback to authoritative server state
             const ydoc = docs.get(docName);
-            if (ydoc && ws.readyState === 1) { // 1 = OPEN
+            if (ydoc && ws.readyState === 1) {
+              // 1 = OPEN
               const encoder = encoding.createEncoder();
               encoding.writeVarUint(encoder, 0); // messageSync
               syncProtocol.writeSyncStep1(encoder, ydoc);
@@ -407,7 +488,7 @@ const enforceReadOnlySocket = (ws, docName, user, authInfo) => {
             return false;
           }
         }
-      } catch (err) {
+      } catch {
         // If decoding fails, pass through or let handler handle
       }
     }
@@ -419,3 +500,6 @@ const enforceReadOnlySocket = (ws, docName, user, authInfo) => {
 module.exports = setupSockets;
 module.exports.authorizeDocumentAccess = authorizeDocumentAccess;
 module.exports.enforceReadOnlySocket = enforceReadOnlySocket;
+module.exports.flushAllDocumentsToDb = flushAllDocumentsToDb;
+module.exports.docs = docs;
+module.exports.getUserColor = getUserColor;

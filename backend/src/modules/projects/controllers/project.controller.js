@@ -76,12 +76,12 @@ const generateShareLink = asyncHandler(async (req, res) => {
   // Verify access
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    include: { workspace: true, members: true }
+    include: { workspace: true, members: true },
   });
 
   if (!project) throw new AppError('Project not found', 404);
 
-  const isMember = project.members.some(m => m.userId === req.user.id);
+  const isMember = project.members.some((m) => m.userId === req.user.id);
   const isOwner = project.workspace.ownerId === req.user.id;
   if (!isMember && !isOwner) throw new AppError('Not authorized', 403);
 
@@ -91,7 +91,7 @@ const generateShareLink = asyncHandler(async (req, res) => {
     joinCode = crypto.randomBytes(3).toString('hex').toUpperCase();
     await prisma.project.update({
       where: { id: projectId },
-      data: { joinCode }
+      data: { joinCode },
     });
   }
 
@@ -100,7 +100,7 @@ const generateShareLink = asyncHandler(async (req, res) => {
 
   sendSuccess(res, {
     message: 'Share link generated',
-    data: { joinCode, whatsappUrl }
+    data: { joinCode, whatsappUrl },
   });
 });
 
@@ -110,26 +110,26 @@ const joinByCode = asyncHandler(async (req, res) => {
 
   const project = await prisma.project.findUnique({
     where: { joinCode: code },
-    include: { members: true }
+    include: { members: true },
   });
 
   if (!project) throw new AppError('Invalid join code', 404);
 
-  const isMember = project.members.some(m => m.userId === req.user.id);
-  
+  const isMember = project.members.some((m) => m.userId === req.user.id);
+
   if (!isMember) {
     await prisma.projectMember.create({
       data: {
         projectId: project.id,
         userId: req.user.id,
-        role: 'EDITOR' // Giving editor permissions as requested
-      }
+        role: 'EDITOR', // Giving editor permissions as requested
+      },
     });
   }
 
   sendSuccess(res, {
     message: 'Successfully joined project',
-    data: { projectId: project.id }
+    data: { projectId: project.id },
   });
 });
 

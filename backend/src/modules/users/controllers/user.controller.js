@@ -24,7 +24,7 @@ const updateProfile = asyncHandler(async (req, res) => {
 const changePassword = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   await userService.changePassword(req.user.id, currentPassword, newPassword);
-  
+
   // Note: the service invalidates all active sessions when the password is changed.
   // The client will need to login again. We should also clear the current refresh cookie.
   res.clearCookie('refreshToken', {

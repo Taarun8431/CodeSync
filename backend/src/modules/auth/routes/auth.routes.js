@@ -1,7 +1,6 @@
 'use strict';
 
 const { Router } = require('express');
-const rateLimit = require('express-rate-limit');
 const authController = require('../controllers/auth.controller');
 const validate = require('../../../middlewares/validate');
 const {

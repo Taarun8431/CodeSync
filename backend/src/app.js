@@ -26,13 +26,17 @@ const app = express();
 
 // ─── Security ─────────────────────────────────────────────────────────────────
 app.use(helmet());
-app.use(cors({
-  origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:5173', 'http://localhost:3000'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true, // Required for sending HTTP-only cookies
-  optionsSuccessStatus: 200
-}));
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL
+      ? process.env.CLIENT_URL.split(',')
+      : ['http://localhost:5173', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true, // Required for sending HTTP-only cookies
+    optionsSuccessStatus: 200,
+  }),
+);
 
 // ─── Global rate limit ────────────────────────────────────────────────────────
 app.use(
@@ -58,19 +62,27 @@ if (process.env.NODE_ENV !== 'test') {
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
-    info: { title: 'CodeSync API', version: '1.0.0', description: 'API for CodeSync Collaborative IDE' },
+    info: {
+      title: 'CodeSync API',
+      version: '1.0.0',
+      description: 'API for CodeSync Collaborative IDE',
+    },
     servers: [{ url: '/api/v1' }],
     components: {
       securitySchemes: {
-        bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }
-      }
+        bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      },
     },
-    security: [{ bearerAuth: [] }]
+    security: [{ bearerAuth: [] }],
   },
-  apis: ['./src/modules/**/*.routes.js'] // Path to route files for JSDoc annotations
+  apis: ['./src/modules/**/*.routes.js'], // Path to route files for JSDoc annotations
 };
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customSiteTitle: 'CodeSync API Docs' }));
+app.use(
+  '/api-docs',
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, { customSiteTitle: 'CodeSync API Docs' }),
+);
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 const apiRouter = express.Router();

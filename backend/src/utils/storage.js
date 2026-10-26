@@ -59,7 +59,7 @@ if (USE_S3) {
     GetObjectCommand = sdk.GetObjectCommand;
   } catch {
     throw new Error(
-      '[Storage] USE_S3=true but @aws-sdk/client-s3 is not installed. Run: npm install @aws-sdk/client-s3'
+      '[Storage] USE_S3=true but @aws-sdk/client-s3 is not installed. Run: npm install @aws-sdk/client-s3',
     );
   }
 

@@ -24,8 +24,6 @@ const { sendSuccess } = require('../../../utils/apiResponse');
 const AppError = require('../../../utils/AppError');
 const prisma = require('../../../lib/prisma');
 
-const USE_PISTON = process.env.USE_PISTON === 'true'; // default false: local node / python with timeout
-
 // ─── Authorization Helper ────────────────────────────────────────────────────
 const verifyProjectAccess = async (userId, projectId) => {
   const project = await prisma.project.findUnique({
@@ -47,15 +45,15 @@ const verifyProjectAccess = async (userId, projectId) => {
 // Maps our internal language names → Piston language + version aliases
 const PISTON_LANG_MAP = {
   javascript: { language: 'javascript', version: '18.15.0' },
-  python:     { language: 'python',     version: '3.10.0'  },
-  cpp:        { language: 'c++',        version: '10.2.0'  },
-  c:          { language: 'c',          version: '10.2.0'  },
-  java:       { language: 'java',       version: '15.0.2'  },
-  go:         { language: 'go',         version: '1.16.2'  },
-  rust:       { language: 'rust',       version: '1.50.0'  },
-  typescript: { language: 'typescript', version: '5.0.3'   },
-  bash:       { language: 'bash',       version: '5.2.0'   },
-  ruby:       { language: 'ruby',       version: '3.0.1'   },
+  python: { language: 'python', version: '3.10.0' },
+  cpp: { language: 'c++', version: '10.2.0' },
+  c: { language: 'c', version: '10.2.0' },
+  java: { language: 'java', version: '15.0.2' },
+  go: { language: 'go', version: '1.16.2' },
+  rust: { language: 'rust', version: '1.50.0' },
+  typescript: { language: 'typescript', version: '5.0.3' },
+  bash: { language: 'bash', version: '5.2.0' },
+  ruby: { language: 'ruby', version: '3.0.1' },
 };
 
 // ─── Piston Execution ────────────────────────────────────────────────────────
@@ -64,7 +62,7 @@ const executeWithPiston = async (code, language) => {
   if (!langConfig) {
     throw new AppError(
       `Language '${language}' is not supported. Supported: ${Object.keys(PISTON_LANG_MAP).join(', ')}`,
-      400
+      400,
     );
   }
 
@@ -122,14 +120,14 @@ const executeLocally = async (code, language) => {
 
   const localLangMap = {
     javascript: { ext: 'js', cmd: 'node' },
-    python:     { ext: 'py', cmd: 'python' },
+    python: { ext: 'py', cmd: 'python' },
   };
 
   const langConfig = localLangMap[language.toLowerCase()];
   if (!langConfig) {
     throw new AppError(
       `Local engine only supports javascript and python. Set USE_PISTON=true for more languages.`,
-      400
+      400,
     );
   }
 
@@ -142,7 +140,9 @@ const executeLocally = async (code, language) => {
   await fs.writeFile(filePath, code);
 
   try {
-    const { stdout, stderr } = await execPromise(`${langConfig.cmd} "${filePath}"`, { timeout: 5000 });
+    const { stdout, stderr } = await execPromise(`${langConfig.cmd} "${filePath}"`, {
+      timeout: 5000,
+    });
     return {
       engine: 'local',
       language,
@@ -197,7 +197,9 @@ const executeCode = asyncHandler(async (req, res) => {
       result = await executeWithPiston(contentToRun, language);
     } catch (pistonErr) {
       if (['javascript', 'python'].includes(language?.toLowerCase())) {
-        console.warn(`[Execution] Piston API failed (${pistonErr.message}), gracefully falling back to local runner`);
+        console.warn(
+          `[Execution] Piston API failed (${pistonErr.message}), gracefully falling back to local runner`,
+        );
         result = await executeLocally(contentToRun, language);
       } else {
         throw pistonErr;

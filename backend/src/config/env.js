@@ -29,10 +29,14 @@ const config = {
   github: {
     clientId: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    callbackUrl: process.env.GITHUB_CALLBACK_URL || 'http://localhost:5000/api/auth/github/callback',
+    callbackUrl:
+      process.env.GITHUB_CALLBACK_URL || 'http://localhost:5000/api/auth/github/callback',
   },
 
-  clientUrl: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',')[0].trim() : 'http://localhost:3000',
+  clientUrl:
+    process.env.CLIENT_URL || process.env.FRONTEND_URL
+      ? (process.env.CLIENT_URL || process.env.FRONTEND_URL).split(',')[0].trim()
+      : 'http://localhost:5173',
 };
 
 // Validate required env vars

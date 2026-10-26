@@ -8,7 +8,7 @@ const isDev = process.env.NODE_ENV === 'development';
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10000, // Temporarily increased for Enterprise Stress Test
-  skip: (req) => process.env.NODE_ENV === 'development', // Skip in dev
+  skip: (_req) => process.env.NODE_ENV === 'development', // Skip in dev
   message: {
     status: 'error',
     message: 'Too many authentication attempts from this IP, please try again after 15 minutes',

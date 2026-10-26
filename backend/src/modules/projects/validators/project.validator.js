@@ -9,7 +9,7 @@ const createProjectValidator = [
     .withMessage('Project name is required.')
     .isLength({ max: 50 })
     .withMessage('Project name must be under 50 characters.'),
-  
+
   body('description')
     .optional()
     .trim()
@@ -31,7 +31,7 @@ const updateProjectValidator = [
     .withMessage('Project name cannot be empty.')
     .isLength({ max: 50 })
     .withMessage('Project name must be under 50 characters.'),
-  
+
   body('description')
     .optional()
     .trim()
@@ -45,11 +45,8 @@ const memberValidator = [
     .withMessage('User ID is required.')
     .isUUID()
     .withMessage('Invalid User ID.'),
-  
-  body('role')
-    .optional()
-    .isIn(['OWNER', 'EDITOR', 'VIEWER'])
-    .withMessage('Invalid role.')
+
+  body('role').optional().isIn(['OWNER', 'EDITOR', 'VIEWER']).withMessage('Invalid role.'),
 ];
 
 module.exports = {

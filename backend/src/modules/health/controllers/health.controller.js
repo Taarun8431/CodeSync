@@ -25,7 +25,7 @@ const checkSMTP = async () => {
         pass: config.email.pass,
       },
     });
-    
+
     await transporter.verify();
     return { status: 'up' };
   } catch (error) {
@@ -38,20 +38,17 @@ const liveness = (req, res) => {
 };
 
 const readiness = async (req, res) => {
-  const [dbHealth, smtpHealth] = await Promise.all([
-    checkDatabase(),
-    checkSMTP()
-  ]);
+  const [dbHealth, smtpHealth] = await Promise.all([checkDatabase(), checkSMTP()]);
 
   const isReady = dbHealth.status === 'up' && smtpHealth.status === 'up';
-  
+
   const response = {
     success: isReady,
     dependencies: {
       database: dbHealth,
-      smtp: smtpHealth
+      smtp: smtpHealth,
     },
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   };
 
   res.status(isReady ? 200 : 503).json(response);

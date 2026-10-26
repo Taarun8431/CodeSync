@@ -49,21 +49,20 @@ const verifyProjectAccess = async (userId, projectId) => {
   // - Workspace Owner: 'OWNER'
   // - Project Member: 'OWNER', 'EDITOR', or 'VIEWER'
   // - Public non-member: 'PUBLIC_VIEWER' (strictly read-only)
-  const role = isWorkspaceOwner
-    ? 'OWNER'
-    : member
-      ? member.role
-      : 'PUBLIC_VIEWER';
+  const role = isWorkspaceOwner ? 'OWNER' : member ? member.role : 'PUBLIC_VIEWER';
 
   return { project, role };
 };
 
 const verifyWriteAccess = async (userId, projectId) => {
   const { role } = await verifyProjectAccess(userId, projectId);
-  
+
   // Explicit whitelist: ONLY OWNER and EDITOR have write privileges
   if (role !== 'OWNER' && role !== 'EDITOR') {
-    throw new AppError('Write permission required. You have read-only access to this project.', 403);
+    throw new AppError(
+      'Write permission required. You have read-only access to this project.',
+      403,
+    );
   }
 };
 
@@ -104,7 +103,8 @@ const renameFolder = async (userId, projectId, folderId, newName) => {
   const existing = await prisma.folder.findFirst({
     where: { projectId, parentId: folder.parentId, name: newName },
   });
-  if (existing && existing.id !== folderId) throw new AppError('Folder with this name already exists', 409);
+  if (existing && existing.id !== folderId)
+    throw new AppError('Folder with this name already exists', 409);
 
   return prisma.folder.update({ where: { id: folderId }, data: { name: newName } });
 };
@@ -159,7 +159,8 @@ const renameFile = async (userId, projectId, fileId, newName) => {
   const existing = await prisma.file.findFirst({
     where: { projectId, folderId: file.folderId, name: newName },
   });
-  if (existing && existing.id !== fileId) throw new AppError('File with this name already exists', 409);
+  if (existing && existing.id !== fileId)
+    throw new AppError('File with this name already exists', 409);
 
   return prisma.file.update({ where: { id: fileId }, data: { name: newName } });
 };
@@ -261,10 +262,10 @@ const getProjectTree = async (userId, projectId) => {
   const files = await prisma.file.findMany({
     where: { projectId },
     select: {
-      id:        true,
-      name:      true,
-      language:  true,
-      folderId:  true,
+      id: true,
+      name: true,
+      language: true,
+      folderId: true,
       updatedAt: true,
     },
   });
